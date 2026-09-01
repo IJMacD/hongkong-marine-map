@@ -1,0 +1,23 @@
+# Generic defaults for a public chart. Cluster-specific values go in
+# values.prod.yaml (gitignored). Copy values.prod.yaml.example to start.
+hostname: marine.example.com
+replicaCount: 1
+repository:
+  image: ijmacd/hongkong-marine-map
+  tag: latest
+mbtilesDir: /data/mbtiles
+tls:
+  enabled: false
+  secretName: ""
+  # Set clusterIssuer (cluster-scoped) or issuer (namespaced) for cert-manager.
+  clusterIssuer: ""
+  issuer: ""
+local:
+  enabled: false
+resources:
+  requests:
+    memory: 256Mi
+    cpu: 50m
+  limits:
+    memory: 512Mi
+    cpu: 500m

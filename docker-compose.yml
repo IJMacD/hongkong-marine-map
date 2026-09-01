@@ -1,0 +1,11 @@
+services:
+  marine:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${MBTILES_DIR:-./mbtiles}:/mbtiles:ro
+    environment:
+      MBTILES_DIR: /mbtiles
+      PUBLIC_BASE_URL: http://localhost:8080
+      PORT: "8080"

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: '{{ .Release.Name }}'
+  labels:
+    app.kubernetes.io/name: '{{ .Chart.Name }}'
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+    app.kubernetes.io/component: map
+spec:
+  selector:
+    app.kubernetes.io/component: map
+    app.kubernetes.io/instance: '{{ .Release.Name }}'
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: http

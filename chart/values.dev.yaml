@@ -1,0 +1,9 @@
+hostname: marine.ijmacd.localhost
+repository:
+  image: k3d-registry.localhost:5111/ijmacd/hongkong-marine-map
+  tag: latest
+mbtilesDir: /ijmacd/ijmacd.com/mbtiles/hongkong-marine
+tls:
+  enabled: true
+local:
+  enabled: true

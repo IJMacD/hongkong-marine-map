@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: '{{ .Release.Name }}'
+  annotations:
+    ingress.kubernetes.io/ssl-redirect: "false"
+    {{- if and .Values.tls.enabled .Values.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- if and .Values.tls.enabled .Values.tls.issuer }}
+    cert-manager.io/issuer: {{ .Values.tls.issuer | quote }}
+    {{- end }}
+    {{- if not .Values.local.enabled }}
+    traefik.ingress.kubernetes.io/router.middlewares: default-cloudflarewarp@kubernetescrd
+    {{- end }}
+spec:
+  rules:
+  - host: '{{ .Values.hostname }}'
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: '{{ .Release.Name }}'
+            port:
+              name: http
+  {{- if .Values.tls.enabled }}
+  tls:
+  - hosts:
+    - '{{ .Values.hostname }}'
+    secretName: {{ default (printf "%s-tls" .Release.Name) .Values.tls.secretName }}
+  {{- end }}

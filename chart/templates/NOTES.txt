@@ -1,0 +1,4 @@
+
+Hong Kong marine charts deployed as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
+
+https://{{ .Values.hostname }}/
