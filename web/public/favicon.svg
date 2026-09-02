@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Hong Kong Marine Chart">
+  <rect width="32" height="32" rx="7" fill="#0b1c2c"/>
+  <g transform="translate(16 16)">
+    <circle r="12" fill="none" stroke="#7eb8da" stroke-width="2"/>
+    <polygon points="0,-10 3.8,-3.6 0,0 -3.8,-3.6" fill="#9fd0f0"/>
+    <polygon points="10,0 3.6,3.8 0,0 3.6,-3.8" fill="#e8eef4"/>
+    <polygon points="0,10 -3.8,3.6 0,0 3.8,3.6" fill="#9db4c8"/>
+    <polygon points="-10,0 -3.6,-3.8 0,0 -3.6,3.8" fill="#e8eef4"/>
+    <circle r="2.3" fill="#0b1c2c"/>
+    <circle r="1" fill="#9fd0f0"/>
+  </g>
+</svg>
