@@ -2,7 +2,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import Database from "better-sqlite3";
-import { parseFilename } from "./parseFilename.js";
+import { formatLabel, parseEdition, parseFilename } from "./parseFilename.js";
 import type { VersionInfo } from "./types.js";
 
 export type OpenedTileset = {
@@ -17,7 +17,8 @@ export type OpenedTileset = {
 const DEFAULT_BOUNDS: [number, number, number, number] = [
   113.516109, 22.068157, 114.502779, 22.568333,
 ];
-const DEFAULT_ATTRIBUTION = "Hong Kong Marine Department";
+const CHART_NAME = "Hong Kong Marine";
+const CHART_ATTRIBUTION = "Hong Kong Marine Department";
 
 function parseBounds(raw: string | undefined): [number, number, number, number] {
   if (!raw) return DEFAULT_BOUNDS;
@@ -42,21 +43,23 @@ function openTileset(filePath: string, size: number, mtimeMs: number): OpenedTil
   const meta = readMetadata(db);
   const id = basename(filePath, ".mbtiles");
   const parsed = parseFilename(id);
+  const edition = parsed.edition ?? parseEdition(meta.name);
   const minzoom = Number(meta.minzoom ?? 8);
   const maxzoom = Number(meta.maxzoom ?? 16);
   const bounds = parseBounds(meta.bounds);
   const version: VersionInfo = {
     id,
     capturedAt: parsed.capturedAt,
-    edition: parsed.edition,
-    label: parsed.label,
+    edition,
+    label: formatLabel(parsed.capturedAt, edition),
     bytes: size,
     tilejson: `/tiles/${id}/tiles.json`,
     minzoom: Number.isFinite(minzoom) ? minzoom : 8,
     maxzoom: Number.isFinite(maxzoom) ? maxzoom : 16,
     bounds,
-    attribution: meta.attribution || DEFAULT_ATTRIBUTION,
-    name: meta.name || "Hong Kong Marine",
+    // MBTiles attribution is MapTiler Engine; credit the chart source instead.
+    attribution: CHART_ATTRIBUTION,
+    name: CHART_NAME,
   };
   return {
     version,

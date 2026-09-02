@@ -65,7 +65,14 @@ export function VersionSlider({ versions, versionId, onChange }: Props) {
   return (
     <div className="version-bar">
       <div className="version-label">
-        <strong>{current.label}</strong>
+        <strong>
+          {new Date(`${current.capturedAt}T00:00:00Z`).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            timeZone: "UTC",
+          })}
+        </strong>
         {current.edition ? <span className="edition">Chart {current.edition}</span> : null}
       </div>
       <div className="version-timeline">

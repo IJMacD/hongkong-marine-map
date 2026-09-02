@@ -39,7 +39,7 @@ Then open http://localhost:8080
 | `GET /tiles/latest/...` | Alias of the newest file |
 | `GET /tiles/{id}/{z}/{x}/{y}.png` | TMS Y-flip inside SQLite; immutable cache |
 
-`id` is the MBTiles filename stem. Filenames like `20211020000000-2021-11`, `20231124084934_2023-07`, and `20250826_1756190350` are parsed into a capture date (and chart edition when present).
+`id` is the MBTiles filename stem. Capture date comes from the filename (`20211020000000-2021-11`, `20250826_1756190350`). Chart edition comes from the filename when present, otherwise from metadata `name` if it looks like `2026-3`. Placeholders such as `MB_Tiles` are ignored. TileJSON attribution is always Hong Kong Marine Department — the MBTiles `attribution` field is only a MapTiler Engine credit.
 
 The server watches `MBTILES_DIR` and rescans every 60s, so a new archive dropped by the existing job shows up without a restart.
 

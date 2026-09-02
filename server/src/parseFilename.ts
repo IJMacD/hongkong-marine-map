@@ -22,13 +22,27 @@ function isoDate(yyyymmdd: string): string | undefined {
   return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
 }
 
-function formatLabel(capturedAt: string, edition?: string): string {
+export function formatLabel(capturedAt: string, edition?: string): string {
   const [year, month, day] = capturedAt.split("-").map(Number);
   const dateLabel =
     year && month && day
       ? `${day} ${MONTHS[month - 1]} ${year}`
       : capturedAt;
   return edition ? `${dateLabel} (edition ${edition})` : dateLabel;
+}
+
+/**
+ * Chart editions look like `2026-3` or `2024-05`.
+ * Ignore MapTiler placeholders such as `MB_Tiles` or `tiles9`.
+ */
+export function parseEdition(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const match = value.trim().match(/^(\d{4})-(\d{1,2})$/);
+  if (!match) return undefined;
+  const year = Number(match[1]);
+  const issue = Number(match[2]);
+  if (year < 1990 || year > 2100 || issue < 1) return undefined;
+  return `${year}-${issue}`;
 }
 
 /**
@@ -53,7 +67,7 @@ export function parseFilename(stem: string): {
     capturedAt = isoDate(yyyymmddUnix[1]);
   } else if (compactWithEdition) {
     capturedAt = isoDate(compactWithEdition[1]);
-    edition = compactWithEdition[2];
+    edition = parseEdition(compactWithEdition[2]);
   } else if (leadingDate) {
     capturedAt = isoDate(leadingDate[1]);
   }
