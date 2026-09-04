@@ -122,3 +122,105 @@ body,
 .leaflet-control-attribution a {
   color: #9fd0f0 !important;
 }
+
+.leaflet-control-locate {
+  border: none !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.leaflet-control-locate a.leaflet-control-locate-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+  background: rgba(11, 28, 44, 0.88);
+  color: #e8eef4;
+  border-radius: 4px;
+  backdrop-filter: blur(8px);
+  text-decoration: none;
+}
+
+.leaflet-control-locate a.leaflet-control-locate-button:hover {
+  background: rgba(18, 40, 60, 0.95);
+  color: #ffffff;
+}
+
+.leaflet-control-locate a.leaflet-control-locate-button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.leaflet-control-locate a.is-locating {
+  color: #7eb8da;
+  animation: locate-pulse 1s ease-in-out infinite;
+}
+
+.leaflet-control-locate a.is-following {
+  color: #7eb8da;
+}
+
+.leaflet-control-locate a.is-off-center {
+  color: #9db4c8;
+}
+
+.leaflet-control-locate a.is-error {
+  color: #e07a7a;
+}
+
+@keyframes locate-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.user-location-icon {
+  background: none !important;
+  border: none !important;
+  pointer-events: none;
+}
+
+.user-location-heading-wrap {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+
+.user-location-heading-wrap.is-hidden {
+  visibility: hidden;
+}
+
+.user-location-heading {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -7px;
+  margin-bottom: 5px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 16px solid #4aa3e0;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+.user-location-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  background: #3d9ee5;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}

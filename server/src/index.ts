@@ -19,6 +19,10 @@ function requestBaseUrl(c: { req: { url: string; header: (name: string) => strin
   const url = new URL(c.req.url);
   const proto = c.req.header("x-forwarded-proto") || url.protocol.replace(":", "");
   const host = c.req.header("x-forwarded-host") || c.req.header("host") || url.host;
+  // Vite proxies to this process; never publish the bind address to the browser.
+  if (host === `127.0.0.1:${PORT}` || host === `localhost:${PORT}` || host === `[::1]:${PORT}`) {
+    return "";
+  }
   return `${proto}://${host}`;
 }
 

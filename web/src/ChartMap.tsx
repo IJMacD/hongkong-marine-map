@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
+import { LocateControl } from "./LocateControl";
 import type { TileJSON, VersionInfo } from "./types";
 import { readLocation, writeLocation } from "./urlState";
 
@@ -29,6 +30,7 @@ export function ChartMap({ version }: Props) {
       maxBoundsViscosity: 1,
     });
     L.control.scale({ imperial: false }).addTo(map);
+    new LocateControl().addTo(map);
 
     const persist = () => {
       const centre = map.getCenter();
