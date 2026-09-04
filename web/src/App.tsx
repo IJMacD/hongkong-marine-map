@@ -6,7 +6,9 @@ import { shareOrDownloadMarkers, type ImportSummary } from "./markersTransfer";
 import { setLineColor, type MarkersState } from "./markersTypes";
 import type { LocateState } from "./LocateControl";
 import type { VersionInfo } from "./types";
+import { TidesPanel } from "./TidesPanel";
 import { readLocation } from "./urlState";
+import { nowTidalSlot, useTidalCurrents } from "./useTidalCurrents";
 import { useMarkersState } from "./useMarkersState";
 import type { UserPosition } from "./userLocation";
 import { VersionSlider } from "./VersionSlider";
@@ -22,8 +24,11 @@ export default function App() {
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
   const [locateState, setLocateState] = useState<LocateState>("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [tidesOpen, setTidesOpen] = useState(false);
+  const [tidalSlot, setTidalSlot] = useState(() => nowTidalSlot());
   const [focusToken, setFocusToken] = useState<FocusToken | null>(null);
   const locateRequestRef = useRef<(() => void) | null>(null);
+  const tides = useTidalCurrents(tidesOpen, tidalSlot);
 
   useEffect(() => {
     fetch("/versions.json")
@@ -129,10 +134,15 @@ export default function App() {
         onLocateState={setLocateState}
         historyOpen={historyOpen}
         onHistoryToggle={() => setHistoryOpen((open) => !open)}
+        tidesOpen={tidesOpen}
+        tidalVectors={tides.vectors}
+        onTidesToggle={() => setTidesOpen((open) => !open)}
         libraryOpen={libraryOpen}
         onLibraryClose={() => setLibraryOpen(false)}
       />
-      <div className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}${historyOpen ? " has-history" : ""}`}>
+      <div
+        className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}${historyOpen || tidesOpen ? " has-bottom" : ""}${historyOpen && tidesOpen ? " has-bottom-2" : ""}`}
+      >
         {libraryOpen ? (
           <MarkersLibrary
             markers={markersState.markers}
@@ -175,20 +185,27 @@ export default function App() {
           />
         ) : null}
       </div>
-      {historyOpen ? (
-        versions && versions.length > 0 ? (
-          <VersionSlider versions={versions} versionId={selectedVersion?.id ?? versionId} onChange={onChange} />
-        ) : (
-          <div className="version-bar">
-            <div className="version-label">
-              {error
-                ? `Could not load chart versions (${error})`
-                : versions === null
-                  ? "Loading chart versions…"
-                  : "No MBTiles found. Put archives in MBTILES_DIR and reload."}
-            </div>
-          </div>
-        )
+      {tidesOpen || historyOpen ? (
+        <div className="bottom-stack">
+          {tidesOpen ? (
+            <TidesPanel slot={tidalSlot} loading={tides.loading} error={tides.error} onChange={setTidalSlot} />
+          ) : null}
+          {historyOpen ? (
+            versions && versions.length > 0 ? (
+              <VersionSlider versions={versions} versionId={selectedVersion?.id ?? versionId} onChange={onChange} />
+            ) : (
+              <div className="version-bar">
+                <div className="version-label">
+                  {error
+                    ? `Could not load chart versions (${error})`
+                    : versions === null
+                      ? "Loading chart versions…"
+                      : "No MBTiles found. Put archives in MBTILES_DIR and reload."}
+                </div>
+              </div>
+            )
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

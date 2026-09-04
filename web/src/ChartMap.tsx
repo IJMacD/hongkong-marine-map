@@ -3,8 +3,11 @@ import L from "leaflet";
 import { HistoryControl } from "./HistoryControl";
 import { LocateControl, type LocateState } from "./LocateControl";
 import { PlaceMarkerControl } from "./PlaceMarkerControl";
+import { TidalStreamLayer } from "./TidalStreamLayer";
+import { TidesControl } from "./TidesControl";
 import type { ChartMarker } from "./markersTypes";
 import type { TileJSON, VersionInfo } from "./types";
+import type { TidalVector } from "./useTidalCurrents";
 import { readLocation, writeLocation } from "./urlState";
 import type { UserPosition } from "./userLocation";
 
@@ -34,6 +37,9 @@ type Props = {
   onLocateState: (state: LocateState) => void;
   historyOpen: boolean;
   onHistoryToggle: () => void;
+  tidesOpen: boolean;
+  tidalVectors: TidalVector[];
+  onTidesToggle: () => void;
   libraryOpen: boolean;
   onLibraryClose: () => void;
 };
@@ -67,6 +73,9 @@ export function ChartMap({
   onLocateState,
   historyOpen,
   onHistoryToggle,
+  tidesOpen,
+  tidalVectors,
+  onTidesToggle,
   libraryOpen,
   onLibraryClose,
 }: Props) {
@@ -77,6 +86,8 @@ export function ChartMap({
   const lineGroupRef = useRef<L.LayerGroup | null>(null);
   const placeControlRef = useRef<PlaceMarkerControl | null>(null);
   const historyControlRef = useRef<HistoryControl | null>(null);
+  const tidesControlRef = useRef<TidesControl | null>(null);
+  const tidesLayerRef = useRef<TidalStreamLayer | null>(null);
   const versionIdRef = useRef(version?.id ?? "latest");
   const skipMapClickRef = useRef(false);
   const [mapEpoch, setMapEpoch] = useState(0);
@@ -87,6 +98,7 @@ export function ChartMap({
     onUserPosition,
     onLocateState,
     onHistoryToggle,
+    onTidesToggle,
     onLibraryClose,
     placeMode,
     selectedId,
@@ -101,6 +113,7 @@ export function ChartMap({
     onUserPosition,
     onLocateState,
     onHistoryToggle,
+    onTidesToggle,
     onLibraryClose,
     placeMode,
     selectedId,
@@ -133,6 +146,11 @@ export function ChartMap({
     });
     historyControl.addTo(map);
     historyControlRef.current = historyControl;
+    const tidesControl = new TidesControl({
+      onToggle: () => callbacksRef.current.onTidesToggle(),
+    });
+    tidesControl.addTo(map);
+    tidesControlRef.current = tidesControl;
 
     lineGroupRef.current = L.layerGroup().addTo(map);
     markerGroupRef.current = L.layerGroup().addTo(map);
@@ -199,6 +217,8 @@ export function ChartMap({
       lineGroupRef.current = null;
       placeControlRef.current = null;
       historyControlRef.current = null;
+      tidesControlRef.current = null;
+      tidesLayerRef.current = null;
     };
   }, [locateRequestRef]);
 
@@ -255,6 +275,29 @@ export function ChartMap({
   useEffect(() => {
     historyControlRef.current?.setActive(historyOpen);
   }, [historyOpen, mapEpoch]);
+
+  useEffect(() => {
+    tidesControlRef.current?.setActive(tidesOpen);
+  }, [tidesOpen, mapEpoch]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !tidesOpen) {
+      tidesLayerRef.current?.remove();
+      tidesLayerRef.current = null;
+      return;
+    }
+    const layer = new TidalStreamLayer().addTo(map);
+    tidesLayerRef.current = layer;
+    return () => {
+      layer.remove();
+      if (tidesLayerRef.current === layer) tidesLayerRef.current = null;
+    };
+  }, [tidesOpen, mapEpoch]);
+
+  useEffect(() => {
+    tidesLayerRef.current?.setField(tidalVectors);
+  }, [tidalVectors, tidesOpen, mapEpoch]);
 
   useEffect(() => {
     const group = markerGroupRef.current;

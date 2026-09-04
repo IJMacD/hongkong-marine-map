@@ -30,18 +30,30 @@ body,
   font-family: inherit;
 }
 
-.version-bar {
+.bottom-stack {
   position: absolute;
   left: 50%;
   bottom: 20px;
   transform: translateX(-50%);
   width: min(880px, calc(100% - 24px));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.bottom-stack > * {
+  pointer-events: auto;
+}
+
+.version-bar {
+  width: 100%;
   padding: 12px 16px 10px;
   border-radius: 12px;
   background: rgba(11, 28, 44, 0.88);
   color: #e8eef4;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  z-index: 1000;
   backdrop-filter: blur(8px);
 }
 
@@ -115,6 +127,85 @@ body,
   white-space: nowrap;
 }
 
+.tides-label {
+  align-items: center;
+}
+
+.tides-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tides-time {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tides-date {
+  flex: none;
+  margin-left: auto;
+}
+
+.tides-date input {
+  font: inherit;
+  font-size: 13px;
+  color: #e8eef4;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(126, 184, 218, 0.45);
+  border-radius: 6px;
+  padding: 2px 6px;
+  color-scheme: dark;
+}
+
+.tides-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(126, 184, 218, 0.25);
+  border-top-color: #7eb8da;
+  border-radius: 50%;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.tides-spinner.is-on {
+  opacity: 1;
+  visibility: visible;
+  animation: tides-spin 0.7s linear infinite;
+}
+
+@keyframes tides-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tides-status {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  color: #9db4c8;
+  font-size: 13px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tides-status.is-error {
+  color: #e07a7a;
+}
+
+.tidal-stream-canvas {
+  pointer-events: none;
+}
+
 .leaflet-control-attribution {
   background: rgba(11, 28, 44, 0.75) !important;
   color: #c5d4e0 !important;
@@ -126,14 +217,16 @@ body,
 
 .leaflet-control-locate,
 .leaflet-control-place,
-.leaflet-control-history {
+.leaflet-control-history,
+.leaflet-control-tides {
   border: none !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 .leaflet-control-locate a.leaflet-control-locate-button,
 .leaflet-control-place a.leaflet-control-place-button,
-.leaflet-control-history a.leaflet-control-history-button {
+.leaflet-control-history a.leaflet-control-history-button,
+.leaflet-control-tides a.leaflet-control-tides-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -149,21 +242,24 @@ body,
 
 .leaflet-control-locate a.leaflet-control-locate-button:hover,
 .leaflet-control-place a.leaflet-control-place-button:hover,
-.leaflet-control-history a.leaflet-control-history-button:hover {
+.leaflet-control-history a.leaflet-control-history-button:hover,
+.leaflet-control-tides a.leaflet-control-tides-button:hover {
   background: rgba(18, 40, 60, 0.95);
   color: #ffffff;
 }
 
 .leaflet-control-locate a.leaflet-control-locate-button svg,
 .leaflet-control-place a.leaflet-control-place-button svg,
-.leaflet-control-history a.leaflet-control-history-button svg {
+.leaflet-control-history a.leaflet-control-history-button svg,
+.leaflet-control-tides a.leaflet-control-tides-button svg {
   width: 18px;
   height: 18px;
   display: block;
 }
 
 .leaflet-control-place a.is-active,
-.leaflet-control-history a.is-active {
+.leaflet-control-history a.is-active,
+.leaflet-control-tides a.is-active {
   color: #7eb8da;
 }
 
@@ -295,16 +391,24 @@ body,
   pointer-events: none;
 }
 
-.side-panels.has-history {
+.side-panels.has-bottom {
   max-height: calc(100% - 140px);
+}
+
+.side-panels.has-bottom-2 {
+  max-height: calc(100% - 260px);
 }
 
 .side-panels.is-stacked {
   height: calc(100% - 24px);
 }
 
-.side-panels.is-stacked.has-history {
+.side-panels.is-stacked.has-bottom {
   height: calc(100% - 140px);
+}
+
+.side-panels.is-stacked.has-bottom-2 {
+  height: calc(100% - 260px);
 }
 
 .side-panels > * {
@@ -343,8 +447,12 @@ body,
   max-height: calc(100vh - 24px);
 }
 
-.side-panels.has-history .markers-library {
+.side-panels.has-bottom .markers-library {
   max-height: calc(100vh - 140px);
+}
+
+.side-panels.has-bottom-2 .markers-library {
+  max-height: calc(100vh - 260px);
 }
 
 .side-panels.is-stacked .markers-library {
