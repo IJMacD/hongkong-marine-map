@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import L from "leaflet";
+import { HistoryControl } from "./HistoryControl";
 import { LocateControl, type LocateState } from "./LocateControl";
 import { PlaceMarkerControl } from "./PlaceMarkerControl";
 import type { ChartMarker } from "./markersTypes";
@@ -31,6 +32,8 @@ type Props = {
   onPlaceModeChange: (active: boolean) => void;
   onUserPosition: (position: UserPosition | null) => void;
   onLocateState: (state: LocateState) => void;
+  historyOpen: boolean;
+  onHistoryToggle: () => void;
 };
 
 const OVERZOOM = 2;
@@ -59,6 +62,8 @@ export function ChartMap({
   onPlaceModeChange,
   onUserPosition,
   onLocateState,
+  historyOpen,
+  onHistoryToggle,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -66,6 +71,7 @@ export function ChartMap({
   const markerGroupRef = useRef<L.LayerGroup | null>(null);
   const lineGroupRef = useRef<L.LayerGroup | null>(null);
   const placeControlRef = useRef<PlaceMarkerControl | null>(null);
+  const historyControlRef = useRef<HistoryControl | null>(null);
   const versionIdRef = useRef(version?.id ?? "latest");
   const skipMapClickRef = useRef(false);
   const [mapEpoch, setMapEpoch] = useState(0);
@@ -75,6 +81,7 @@ export function ChartMap({
     onPlaceModeChange,
     onUserPosition,
     onLocateState,
+    onHistoryToggle,
     placeMode,
     selectedId,
   });
@@ -86,6 +93,7 @@ export function ChartMap({
     onPlaceModeChange,
     onUserPosition,
     onLocateState,
+    onHistoryToggle,
     placeMode,
     selectedId,
   };
@@ -111,6 +119,11 @@ export function ChartMap({
     });
     placeControl.addTo(map);
     placeControlRef.current = placeControl;
+    const historyControl = new HistoryControl({
+      onToggle: () => callbacksRef.current.onHistoryToggle(),
+    });
+    historyControl.addTo(map);
+    historyControlRef.current = historyControl;
 
     lineGroupRef.current = L.layerGroup().addTo(map);
     markerGroupRef.current = L.layerGroup().addTo(map);
@@ -172,6 +185,7 @@ export function ChartMap({
       markerGroupRef.current = null;
       lineGroupRef.current = null;
       placeControlRef.current = null;
+      historyControlRef.current = null;
     };
   }, [locateRequestRef]);
 
@@ -224,6 +238,10 @@ export function ChartMap({
     placeControlRef.current?.setActive(placeMode);
     mapRef.current?.getContainer().classList.toggle("is-placing", placeMode);
   }, [placeMode, mapEpoch]);
+
+  useEffect(() => {
+    historyControlRef.current?.setActive(historyOpen);
+  }, [historyOpen, mapEpoch]);
 
   useEffect(() => {
     const group = markerGroupRef.current;

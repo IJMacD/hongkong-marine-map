@@ -20,6 +20,7 @@ export default function App() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
   const [locateState, setLocateState] = useState<LocateState>("idle");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [focusToken, setFocusToken] = useState<FocusToken | null>(null);
   const locateRequestRef = useRef<(() => void) | null>(null);
 
@@ -107,8 +108,10 @@ export default function App() {
         onPlaceModeChange={setPlaceMode}
         onUserPosition={setUserPosition}
         onLocateState={setLocateState}
+        historyOpen={historyOpen}
+        onHistoryToggle={() => setHistoryOpen((open) => !open)}
       />
-      <div className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}`}>
+      <div className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}${historyOpen ? " has-history" : ""}`}>
         {libraryOpen ? (
           <MarkersLibrary
             markers={markersState.markers}
@@ -149,19 +152,21 @@ export default function App() {
           />
         ) : null}
       </div>
-      {versions && versions.length > 0 ? (
-        <VersionSlider versions={versions} versionId={selectedVersion?.id ?? versionId} onChange={onChange} />
-      ) : (
-        <div className="version-bar">
-          <div className="version-label">
-            {error
-              ? `Could not load chart versions (${error})`
-              : versions === null
-                ? "Loading chart versions…"
-                : "No MBTiles found. Put archives in MBTILES_DIR and reload."}
+      {historyOpen ? (
+        versions && versions.length > 0 ? (
+          <VersionSlider versions={versions} versionId={selectedVersion?.id ?? versionId} onChange={onChange} />
+        ) : (
+          <div className="version-bar">
+            <div className="version-label">
+              {error
+                ? `Could not load chart versions (${error})`
+                : versions === null
+                  ? "Loading chart versions…"
+                  : "No MBTiles found. Put archives in MBTILES_DIR and reload."}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      ) : null}
     </div>
   );
 }
