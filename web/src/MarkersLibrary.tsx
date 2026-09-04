@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { bearingTrue, distanceNmi, formatBearing, formatRangeNmi } from "./geo";
-import { setLineColor, type ChartMarker, type MarkerSet } from "./markersTypes";
+import {
+  formatImportSummary,
+  formatReplaceSummary,
+  parseMarkersTransferText,
+  type ImportSummary,
+} from "./markersTransfer";
+import { setLineColor, type ChartMarker, type MarkerSet, type MarkersState } from "./markersTypes";
 
 type Props = {
   markers: ChartMarker[];
@@ -19,6 +25,8 @@ type Props = {
   onToggleSetLoaded: (id: string) => void;
   onAddMarkerToSet: (setId: string, markerId: string) => void;
   onRemoveMarkerFromSet: (setId: string, index: number) => void;
+  onExport: () => void;
+  onImport: (incoming: MarkersState, mode: "merge" | "replace") => ImportSummary;
 };
 
 export function MarkersLibrary({
@@ -38,25 +46,115 @@ export function MarkersLibrary({
   onToggleSetLoaded,
   onAddMarkerToSet,
   onRemoveMarkerFromSet,
+  onExport,
+  onImport,
 }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState<{ document: MarkersState; name: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const loadedMarkerSet = new Set(loadedMarkerIds);
   const loadedSetSet = new Set(loadedSetIds);
   const markerById = new Map(markers.map((marker) => [marker.id, marker]));
+  const libraryEmpty = markers.length === 0 && sets.length === 0;
+
+  function applyImport(incoming: MarkersState, mode: "merge" | "replace") {
+    const summary = onImport(incoming, mode);
+    setPending(null);
+    setNotice({
+      kind: "ok",
+      text: mode === "replace" ? formatReplaceSummary(summary) : formatImportSummary(summary),
+    });
+  }
+
+  async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setPending(null);
+      setNotice({ kind: "error", text: "Could not read that file." });
+      return;
+    }
+    const document = parseMarkersTransferText(text);
+    if (!document) {
+      setPending(null);
+      setNotice({ kind: "error", text: "Not a markers file." });
+      return;
+    }
+    setNotice(null);
+    if (libraryEmpty) {
+      applyImport(document, "merge");
+      return;
+    }
+    setPending({ document, name: file.name });
+  }
 
   return (
     <section className="glass-panel markers-library" aria-label="Markers">
-      <button type="button" className="panel-header panel-header-btn" onClick={onClose} aria-label="Close markers">
-        <h2>Markers</h2>
-        <span className="panel-caret" aria-hidden>
-          <svg viewBox="0 0 24 24">
-            <path fill="currentColor" d="M7 14.5 12 9.5l5 5z" />
-          </svg>
-        </span>
-      </button>
+      <header className="markers-library-header">
+        <button type="button" className="panel-header-btn" onClick={onClose} aria-label="Close markers">
+          <h2>Markers</h2>
+          <span className="panel-caret" aria-hidden>
+            <svg viewBox="0 0 24 24">
+              <path fill="currentColor" d="M7 14.5 12 9.5l5 5z" />
+            </svg>
+          </span>
+        </button>
+        <div className="panel-header-actions">
+          <button type="button" className="text-btn" onClick={() => fileRef.current?.click()}>
+            Import
+          </button>
+          <button type="button" className="text-btn" onClick={onExport} disabled={libraryEmpty}>
+            Export
+          </button>
+        </div>
+      </header>
+      <input
+        ref={fileRef}
+        className="visually-hidden"
+        type="file"
+        accept=".json,application/json"
+        aria-label="Import markers file"
+        onChange={onFileChange}
+      />
+
+      {pending ? (
+        <div className="import-choice">
+          <p>
+            {pending.document.markers.length === 1 ? "1 marker" : `${pending.document.markers.length} markers`},{" "}
+            {pending.document.sets.length === 1 ? "1 set" : `${pending.document.sets.length} sets`}
+            {pending.name ? ` from ${pending.name}` : ""}.
+          </p>
+          <button type="button" className="text-btn" onClick={() => applyImport(pending.document, "merge")}>
+            Add to library
+          </button>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() => {
+              if (window.confirm("This deletes markers that are not in the file.")) {
+                applyImport(pending.document, "replace");
+              }
+            }}
+          >
+            Replace library
+          </button>
+          <button type="button" className="icon-btn" aria-label="Cancel import" onClick={() => setPending(null)}>
+            ×
+          </button>
+        </div>
+      ) : notice ? (
+        <p className={`import-status${notice.kind === "error" ? " is-error" : ""}`}>{notice.text}</p>
+      ) : null}
 
       <div className="panel-section">
         {markers.length === 0 ? (
-          <p className="panel-empty">Use the pin tool, then click the chart to place a marker.</p>
+          <p className="panel-empty">
+            Use the pin tool, then click the chart to place a marker. Or Import a file from another device.
+          </p>
         ) : (
           <ul className="panel-list">
             {markers.map((marker) => (

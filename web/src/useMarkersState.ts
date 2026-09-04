@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadMarkersState, saveMarkersState } from "./markersStorage";
+import { mergeMarkersState, replaceMarkersState, type ImportSummary } from "./markersTransfer";
 import { nextIndexedName, type ChartMarker, type MarkerSet, type MarkersState } from "./markersTypes";
 
 function newId(): string {
@@ -158,6 +159,22 @@ export function useMarkersState() {
     }));
   }, []);
 
+  const importMarkers = useCallback((incoming: MarkersState): ImportSummary => {
+    let summary: ImportSummary = { addedMarkers: 0, updatedMarkers: 0, addedSets: 0, updatedSets: 0 };
+    setState((prev) => {
+      const result = mergeMarkersState(prev, incoming);
+      summary = result.summary;
+      return result.state;
+    });
+    return summary;
+  }, []);
+
+  const replaceMarkers = useCallback((incoming: MarkersState): ImportSummary => {
+    const result = replaceMarkersState(incoming);
+    setState(result.state);
+    return result.summary;
+  }, []);
+
   return {
     ...state,
     visibleMarkers,
@@ -172,5 +189,7 @@ export function useMarkersState() {
     toggleSetLoaded,
     addMarkerToSet,
     removeMarkerFromSet,
+    importMarkers,
+    replaceMarkers,
   };
 }

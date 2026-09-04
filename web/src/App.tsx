@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChartMap, type FocusToken } from "./ChartMap";
 import { MarkerDetail } from "./MarkerDetail";
 import { MarkersLibrary } from "./MarkersLibrary";
-import { setLineColor } from "./markersTypes";
+import { shareOrDownloadMarkers, type ImportSummary } from "./markersTransfer";
+import { setLineColor, type MarkersState } from "./markersTypes";
 import type { LocateState } from "./LocateControl";
 import type { VersionInfo } from "./types";
 import { readLocation } from "./urlState";
@@ -93,6 +94,30 @@ export default function App() {
     [markersState],
   );
 
+  const onExportMarkers = useCallback(() => {
+    void shareOrDownloadMarkers({
+      version: 1,
+      markers: markersState.markers,
+      sets: markersState.sets,
+      loadedMarkerIds: markersState.loadedMarkerIds,
+      loadedSetIds: markersState.loadedSetIds,
+    });
+  }, [markersState.markers, markersState.sets, markersState.loadedMarkerIds, markersState.loadedSetIds]);
+
+  const onImportMarkers = useCallback(
+    (incoming: MarkersState, mode: "merge" | "replace"): ImportSummary => {
+      const summary =
+        mode === "replace" ? markersState.replaceMarkers(incoming) : markersState.importMarkers(incoming);
+      if (mode === "replace") {
+        setSelectedId((current) =>
+          current && incoming.markers.some((marker) => marker.id === current) ? current : null,
+        );
+      }
+      return summary;
+    },
+    [markersState],
+  );
+
   return (
     <div className="app">
       <ChartMap
@@ -130,6 +155,8 @@ export default function App() {
             onToggleSetLoaded={markersState.toggleSetLoaded}
             onAddMarkerToSet={markersState.addMarkerToSet}
             onRemoveMarkerFromSet={markersState.removeMarkerFromSet}
+            onExport={onExportMarkers}
+            onImport={onImportMarkers}
           />
         ) : (
           <button type="button" className="markers-toggle" onClick={() => setLibraryOpen(true)}>
