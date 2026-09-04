@@ -129,6 +129,8 @@ export default function App() {
         onLocateState={setLocateState}
         historyOpen={historyOpen}
         onHistoryToggle={() => setHistoryOpen((open) => !open)}
+        libraryOpen={libraryOpen}
+        onLibraryClose={() => setLibraryOpen(false)}
       />
       <div className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}${historyOpen ? " has-history" : ""}`}>
         {libraryOpen ? (

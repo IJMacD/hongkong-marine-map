@@ -34,9 +34,12 @@ type Props = {
   onLocateState: (state: LocateState) => void;
   historyOpen: boolean;
   onHistoryToggle: () => void;
+  libraryOpen: boolean;
+  onLibraryClose: () => void;
 };
 
 const OVERZOOM = 2;
+const NARROW_VIEWPORT = "(max-width: 640px)";
 const MARKER_HTML =
   '<div class="chart-marker-pin"></div><div class="chart-marker-dot"></div>';
 
@@ -64,6 +67,8 @@ export function ChartMap({
   onLocateState,
   historyOpen,
   onHistoryToggle,
+  libraryOpen,
+  onLibraryClose,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -82,8 +87,10 @@ export function ChartMap({
     onUserPosition,
     onLocateState,
     onHistoryToggle,
+    onLibraryClose,
     placeMode,
     selectedId,
+    libraryOpen,
   });
 
   versionIdRef.current = version?.id ?? "latest";
@@ -94,8 +101,10 @@ export function ChartMap({
     onUserPosition,
     onLocateState,
     onHistoryToggle,
+    onLibraryClose,
     placeMode,
     selectedId,
+    libraryOpen,
   };
 
   useEffect(() => {
@@ -143,6 +152,10 @@ export function ChartMap({
       const cb = callbacksRef.current;
       if (cb.placeMode) {
         cb.onPlace(event.latlng.lat, event.latlng.lng);
+        return;
+      }
+      if (cb.libraryOpen && window.matchMedia(NARROW_VIEWPORT).matches) {
+        cb.onLibraryClose();
         return;
       }
       cb.onSelect(null);
