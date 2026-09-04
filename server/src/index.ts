@@ -6,6 +6,14 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { TileCatalog } from "./catalog.js";
+import {
+  SHARE_MAX_BYTES,
+  allowShareRate,
+  createShare,
+  getShare,
+  isMarkersSharePayload,
+  normalizeShareCode,
+} from "./shareStore.js";
 import { toTileJSON } from "./tilejson.js";
 
 const PORT = Number(process.env.PORT || 8080);
@@ -24,6 +32,12 @@ function requestBaseUrl(c: { req: { url: string; header: (name: string) => strin
     return "";
   }
   return `${proto}://${host}`;
+}
+
+function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  const forwarded = c.req.header("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
+  return c.req.header("x-real-ip") || "unknown";
 }
 
 async function main() {
@@ -74,6 +88,54 @@ async function main() {
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
+  });
+
+  app.post("/shares", async (c) => {
+    if (!allowShareRate(clientIp(c), 20, 10 * 60 * 1000)) {
+      return c.json({ error: "rate limit" }, 429);
+    }
+    const contentLength = Number(c.req.header("content-length") ?? NaN);
+    if (Number.isFinite(contentLength) && contentLength > SHARE_MAX_BYTES) {
+      return c.json({ error: "too large" }, 413);
+    }
+    let raw: string;
+    try {
+      raw = await c.req.text();
+    } catch {
+      return c.json({ error: "invalid body" }, 400);
+    }
+    if (raw.length > SHARE_MAX_BYTES) return c.json({ error: "too large" }, 413);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      return c.json({ error: "invalid json" }, 400);
+    }
+    if (!isMarkersSharePayload(parsed)) return c.json({ error: "invalid markers" }, 400);
+    const compact = JSON.stringify(parsed);
+    if (compact.length > SHARE_MAX_BYTES) return c.json({ error: "too large" }, 413);
+    const created = createShare(compact);
+    if (!created) return c.json({ error: "busy" }, 503);
+    c.header("Cache-Control", "no-store");
+    return c.json(
+      {
+        code: created.code,
+        expiresIn: Math.max(0, Math.round((created.expiresAt - Date.now()) / 1000)),
+      },
+      201,
+    );
+  });
+
+  app.get("/shares/:code", (c) => {
+    if (!allowShareRate(clientIp(c), 60, 10 * 60 * 1000)) {
+      return c.json({ error: "rate limit" }, 429);
+    }
+    const code = normalizeShareCode(c.req.param("code"));
+    if (!code) return c.json({ error: "invalid code" }, 400);
+    const json = getShare(code);
+    if (!json) return c.json({ error: "not found" }, 404);
+    c.header("Cache-Control", "no-store");
+    return c.json(JSON.parse(json) as Record<string, unknown>);
   });
 
   if (existsSync(WEB_DIST)) {

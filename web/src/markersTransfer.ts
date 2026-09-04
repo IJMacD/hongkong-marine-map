@@ -73,6 +73,102 @@ export function parseMarkersTransferText(text: string): MarkersState | null {
   }
 }
 
+export function visibleMarkersState(state: MarkersState): MarkersState {
+  const loadedSets = new Set(state.loadedSetIds);
+  const loadedMarkers = new Set(state.loadedMarkerIds);
+  const sets = state.sets.filter((set) => loadedSets.has(set.id));
+  const fromSets = new Set<string>();
+  for (const set of sets) {
+    for (const id of set.markerIds) fromSets.add(id);
+  }
+  const markers = state.markers.filter((marker) => loadedMarkers.has(marker.id) || fromSets.has(marker.id));
+  const markerIds = new Set(markers.map((marker) => marker.id));
+  const setIds = new Set(sets.map((set) => set.id));
+  return {
+    version: 1,
+    markers,
+    sets,
+    loadedMarkerIds: uniqueStrings(state.loadedMarkerIds, markerIds),
+    loadedSetIds: uniqueStrings(state.loadedSetIds, setIds),
+  };
+}
+
+export const SHARE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+export const SHARE_CODE_LENGTH = 4;
+
+export function normalizeShareCode(raw: string): string | null {
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (cleaned.length !== SHARE_CODE_LENGTH) return null;
+  for (const ch of cleaned) {
+    if (!SHARE_ALPHABET.includes(ch)) return null;
+  }
+  return cleaned;
+}
+
+export function filterShareCodeInput(raw: string): string {
+  let out = "";
+  for (const ch of raw.toUpperCase()) {
+    if (SHARE_ALPHABET.includes(ch)) out += ch;
+    if (out.length === SHARE_CODE_LENGTH) break;
+  }
+  return out;
+}
+
+export class ShareRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShareRequestError";
+  }
+}
+
+function shareErrorForStatus(status: number, action: "create" | "fetch"): ShareRequestError {
+  if (status === 413) return new ShareRequestError("Library is too large to share as a code.");
+  if (status === 429) return new ShareRequestError("Too many share requests. Try again in a few minutes.");
+  if (status === 404) return new ShareRequestError("No share found for that code.");
+  if (action === "create") return new ShareRequestError("Could not create a share code.");
+  return new ShareRequestError("Could not load that share code.");
+}
+
+export async function createShareCode(state: MarkersState): Promise<{ code: string; expiresIn: number }> {
+  let res: Response;
+  try {
+    res = await fetch("/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        version: 1,
+        markers: state.markers,
+        sets: state.sets,
+        loadedMarkerIds: state.loadedMarkerIds,
+        loadedSetIds: state.loadedSetIds,
+      }),
+    });
+  } catch {
+    throw new ShareRequestError("Could not create a share code.");
+  }
+  if (!res.ok) throw shareErrorForStatus(res.status, "create");
+  const data = (await res.json()) as { code?: unknown; expiresIn?: unknown };
+  const code = typeof data.code === "string" ? normalizeShareCode(data.code) : null;
+  const expiresIn = typeof data.expiresIn === "number" && Number.isFinite(data.expiresIn) ? data.expiresIn : 0;
+  if (!code) throw new ShareRequestError("Could not create a share code.");
+  return { code, expiresIn };
+}
+
+export async function fetchShareCode(code: string): Promise<MarkersState> {
+  const normalized = normalizeShareCode(code);
+  if (!normalized) throw new ShareRequestError("Enter a 4-character share code.");
+  let res: Response;
+  try {
+    res = await fetch(`/shares/${encodeURIComponent(normalized)}`);
+  } catch {
+    throw new ShareRequestError("Could not load that share code.");
+  }
+  if (!res.ok) throw shareErrorForStatus(res.status, "fetch");
+  const parsed = parseMarkersDocument(await res.json(), { missingLoaded: "all" });
+  if (!parsed) throw new ShareRequestError("Not a markers file.");
+  return parsed;
+}
+
 export function mergeMarkersState(
   current: MarkersState,
   incoming: MarkersState,

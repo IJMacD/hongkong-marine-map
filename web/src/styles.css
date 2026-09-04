@@ -450,6 +450,44 @@ body,
   line-height: 1.4;
 }
 
+.import-choice .share-code {
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #e8eef4;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  cursor: text;
+  user-select: all;
+}
+
+.share-code-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.share-code-field span {
+  color: #9db4c8;
+  font-size: 13px;
+}
+
+.share-code-input {
+  flex: none;
+  width: 5.2em;
+  text-align: center;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .panel-caret svg {
   width: 22px;
   height: 22px;

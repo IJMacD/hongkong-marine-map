@@ -14,6 +14,7 @@ export default defineConfig({
       "/versions.json": apiProxy,
       "/tiles": apiProxy,
       "/healthz": apiProxy,
+      "/shares": apiProxy,
     },
   },
   build: {

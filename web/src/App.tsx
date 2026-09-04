@@ -94,15 +94,9 @@ export default function App() {
     [markersState],
   );
 
-  const onExportMarkers = useCallback(() => {
-    void shareOrDownloadMarkers({
-      version: 1,
-      markers: markersState.markers,
-      sets: markersState.sets,
-      loadedMarkerIds: markersState.loadedMarkerIds,
-      loadedSetIds: markersState.loadedSetIds,
-    });
-  }, [markersState.markers, markersState.sets, markersState.loadedMarkerIds, markersState.loadedSetIds]);
+  const onExportMarkers = useCallback((state: MarkersState) => {
+    void shareOrDownloadMarkers(state);
+  }, []);
 
   const onImportMarkers = useCallback(
     (incoming: MarkersState, mode: "merge" | "replace"): ImportSummary => {
