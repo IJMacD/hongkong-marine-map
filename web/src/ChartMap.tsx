@@ -1,22 +1,94 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import L from "leaflet";
-import { LocateControl } from "./LocateControl";
+import { LocateControl, type LocateState } from "./LocateControl";
+import { PlaceMarkerControl } from "./PlaceMarkerControl";
+import type { ChartMarker } from "./markersTypes";
 import type { TileJSON, VersionInfo } from "./types";
 import { readLocation, writeLocation } from "./urlState";
+import type { UserPosition } from "./userLocation";
+
+export type SetRoute = {
+  id: string;
+  color: string;
+  latlngs: [number, number][];
+};
+
+export type FocusToken = {
+  id: string;
+  nonce: number;
+};
 
 type Props = {
   version: VersionInfo | undefined;
+  markers: ChartMarker[];
+  selectedId: string | null;
+  placeMode: boolean;
+  setRoutes: SetRoute[];
+  focusToken: FocusToken | null;
+  locateRequestRef: MutableRefObject<(() => void) | null>;
+  onPlace: (lat: number, lng: number) => void;
+  onSelect: (id: string | null) => void;
+  onPlaceModeChange: (active: boolean) => void;
+  onUserPosition: (position: UserPosition | null) => void;
+  onLocateState: (state: LocateState) => void;
 };
 
 const OVERZOOM = 2;
+const MARKER_HTML =
+  '<div class="chart-marker-pin"></div><div class="chart-marker-dot"></div>';
 
-export function ChartMap({ version }: Props) {
+function markerIcon(selected: boolean): L.DivIcon {
+  return L.divIcon({
+    className: `chart-marker-icon${selected ? " is-selected" : ""}`,
+    html: MARKER_HTML,
+    iconSize: [28, 36],
+    iconAnchor: [14, 34],
+  });
+}
+
+export function ChartMap({
+  version,
+  markers,
+  selectedId,
+  placeMode,
+  setRoutes,
+  focusToken,
+  locateRequestRef,
+  onPlace,
+  onSelect,
+  onPlaceModeChange,
+  onUserPosition,
+  onLocateState,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.TileLayer | null>(null);
+  const markerGroupRef = useRef<L.LayerGroup | null>(null);
+  const lineGroupRef = useRef<L.LayerGroup | null>(null);
+  const placeControlRef = useRef<PlaceMarkerControl | null>(null);
   const versionIdRef = useRef(version?.id ?? "latest");
+  const skipMapClickRef = useRef(false);
+  const [mapEpoch, setMapEpoch] = useState(0);
+  const callbacksRef = useRef({
+    onPlace,
+    onSelect,
+    onPlaceModeChange,
+    onUserPosition,
+    onLocateState,
+    placeMode,
+    selectedId,
+  });
 
   versionIdRef.current = version?.id ?? "latest";
+  callbacksRef.current = {
+    onPlace,
+    onSelect,
+    onPlaceModeChange,
+    onUserPosition,
+    onLocateState,
+    placeMode,
+    selectedId,
+  };
 
   useEffect(() => {
     const el = containerRef.current;
@@ -31,6 +103,17 @@ export function ChartMap({ version }: Props) {
     });
     L.control.scale({ imperial: false }).addTo(map);
     new LocateControl().addTo(map);
+    const placeControl = new PlaceMarkerControl({
+      onToggle: () => {
+        const next = !callbacksRef.current.placeMode;
+        callbacksRef.current.onPlaceModeChange(next);
+      },
+    });
+    placeControl.addTo(map);
+    placeControlRef.current = placeControl;
+
+    lineGroupRef.current = L.layerGroup().addTo(map);
+    markerGroupRef.current = L.layerGroup().addTo(map);
 
     const persist = () => {
       const centre = map.getCenter();
@@ -38,14 +121,59 @@ export function ChartMap({ version }: Props) {
     };
     map.on("moveend", persist);
     map.on("zoomend", persist);
+
+    map.on("click", (event: L.LeafletMouseEvent) => {
+      if (skipMapClickRef.current) {
+        skipMapClickRef.current = false;
+        return;
+      }
+      const cb = callbacksRef.current;
+      if (cb.placeMode) {
+        cb.onPlace(event.latlng.lat, event.latlng.lng);
+        return;
+      }
+      cb.onSelect(null);
+    });
+
+    const onUserPos = ((event: L.LeafletEvent) => {
+      callbacksRef.current.onUserPosition((event as L.LeafletEvent & { position: UserPosition }).position);
+    }) as L.LeafletEventHandlerFn;
+    const onUserPosEnd = () => callbacksRef.current.onUserPosition(null);
+    const onLocateStateEvent = ((event: L.LeafletEvent) => {
+      callbacksRef.current.onLocateState((event as L.LeafletEvent & { state: LocateState }).state);
+    }) as L.LeafletEventHandlerFn;
+    map.on("userposition", onUserPos);
+    map.on("userpositionend", onUserPosEnd);
+    map.on("locatestate", onLocateStateEvent);
+
+    locateRequestRef.current = () => map.fire("requestlocate");
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      const cb = callbacksRef.current;
+      if (cb.placeMode) {
+        cb.onPlaceModeChange(false);
+        return;
+      }
+      if (cb.selectedId) cb.onSelect(null);
+    };
+    window.addEventListener("keydown", onKey);
+
     mapRef.current = map;
+    setMapEpoch((n) => n + 1);
 
     return () => {
+      window.removeEventListener("keydown", onKey);
+      locateRequestRef.current = null;
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      markerGroupRef.current = null;
+      lineGroupRef.current = null;
+      placeControlRef.current = null;
     };
-  }, []);
+  }, [locateRequestRef]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -90,7 +218,55 @@ export function ChartMap({ version }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [version]);
+  }, [version, mapEpoch]);
+
+  useEffect(() => {
+    placeControlRef.current?.setActive(placeMode);
+    mapRef.current?.getContainer().classList.toggle("is-placing", placeMode);
+  }, [placeMode, mapEpoch]);
+
+  useEffect(() => {
+    const group = markerGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
+    for (const marker of markers) {
+      const selected = marker.id === selectedId;
+      const pin = L.marker([marker.lat, marker.lng], {
+        icon: markerIcon(selected),
+        title: marker.name,
+        zIndexOffset: selected ? 500 : 0,
+      });
+      pin.on("click", (event) => {
+        L.DomEvent.stopPropagation(event);
+        skipMapClickRef.current = true;
+        callbacksRef.current.onSelect(marker.id);
+      });
+      pin.addTo(group);
+    }
+  }, [markers, selectedId, mapEpoch]);
+
+  useEffect(() => {
+    const group = lineGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
+    for (const route of setRoutes) {
+      if (route.latlngs.length < 2) continue;
+      L.polyline(route.latlngs, {
+        color: route.color,
+        weight: 2,
+        opacity: 0.85,
+        interactive: false,
+      }).addTo(group);
+    }
+  }, [setRoutes, mapEpoch]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusToken) return;
+    const marker = markers.find((item) => item.id === focusToken.id);
+    if (!marker) return;
+    map.panTo([marker.lat, marker.lng]);
+  }, [focusToken, markers, mapEpoch]);
 
   return <div ref={containerRef} className="map" />;
 }

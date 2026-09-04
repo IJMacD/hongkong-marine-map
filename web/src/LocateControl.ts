@@ -7,7 +7,7 @@ import {
   type UserPosition,
 } from "./userLocation";
 
-type LocateState = "idle" | "locating" | "following" | "off-center" | "error";
+export type LocateState = "idle" | "locating" | "following" | "off-center" | "error";
 
 const ICON_HTML =
   '<div class="user-location-heading-wrap is-hidden"><div class="user-location-heading"></div></div><div class="user-location-dot"></div>';
@@ -56,6 +56,7 @@ export class LocateControl extends L.Control {
 
     map.on("dragstart", this.dropFollow);
     map.on("zoomstart", this.dropFollow);
+    map.on("requestlocate", this.onRequestLocate);
     return bar;
   }
 
@@ -63,6 +64,7 @@ export class LocateControl extends L.Control {
     if (this.button) L.DomEvent.off(this.button, "click", this.onClick);
     map.off("dragstart", this.dropFollow);
     map.off("zoomstart", this.dropFollow);
+    map.off("requestlocate", this.onRequestLocate);
     this.stop();
     this.mapRef = undefined;
     this.button = undefined;
@@ -110,7 +112,20 @@ export class LocateControl extends L.Control {
     this.lastPosition = undefined;
     this.compassHeading = null;
     this.setState("idle");
+    this.mapRef?.fire("userpositionend");
   }
+
+  private emitPosition(): void {
+    const map = this.mapRef;
+    const position = this.lastPosition;
+    if (!map || !position) return;
+    map.fire("userposition", { position });
+  }
+
+  private onRequestLocate = (): void => {
+    if (this.lastPosition) this.emitPosition();
+    if (this.state === "idle" || this.state === "error") this.start();
+  };
 
   private stopWatchers(): void {
     this.stopPosition?.();
@@ -159,6 +174,7 @@ export class LocateControl extends L.Control {
     }
 
     this.applyHeading();
+    this.emitPosition();
 
     if (this.state === "locating" || this.state === "following") {
       this.panTo(position, this.state === "locating");
@@ -180,8 +196,8 @@ export class LocateControl extends L.Control {
     const map = this.mapRef;
     if (!map) return;
     const latlng = L.latLng(position.lat, position.lng);
-    const maxBounds = map.options.maxBounds;
-    if (maxBounds && !L.latLngBounds(maxBounds).contains(latlng)) {
+    const maxBounds = map.options.maxBounds as L.LatLngBounds | undefined;
+    if (maxBounds && !maxBounds.contains(latlng)) {
       this.setState("off-center");
       return;
     }
@@ -210,6 +226,7 @@ export class LocateControl extends L.Control {
 
   private setState(state: LocateState): void {
     this.state = state;
+    this.mapRef?.fire("locatestate", { state });
     const button = this.button;
     if (!button) return;
     button.title = TITLES[state];
