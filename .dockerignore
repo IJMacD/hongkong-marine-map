@@ -1,6 +1,19 @@
-node_modules
-dist
+# deps & build output (any depth — Docker does not recurse like gitignore)
+**/node_modules
+
+**/dist
+
+# tiles are mounted at runtime, not copied into the image
 mbtiles
-.git
+**/mbtiles
 *.mbtiles
+**/*.mbtiles
+
+.git
+.cursor
 .env
+*.log
+.DS_Store
+
+chart
+README.md
