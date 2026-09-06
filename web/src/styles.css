@@ -558,6 +558,10 @@ body,
   line-height: 1.4;
 }
 
+.import-choice p.is-error {
+  color: #e07a7a;
+}
+
 .import-choice .share-code {
   flex: 1 1 100%;
   width: 100%;

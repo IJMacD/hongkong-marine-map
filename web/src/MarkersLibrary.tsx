@@ -58,14 +58,16 @@ export function MarkersLibrary({
   const fileRef = useRef<HTMLInputElement>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
   const shareCodeRef = useRef<HTMLInputElement>(null);
+  const exportRequestRef = useRef(0);
   const [pending, setPending] = useState<{ document: MarkersState; name: string } | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [codeDraft, setCodeDraft] = useState("");
   const [enterCode, setEnterCode] = useState(false);
-  const [shareCode, setShareCode] = useState<{
-    code: string;
-    expiresIn: number;
+  const [exporting, setExporting] = useState<{
     document: MarkersState;
+    code: string | null;
+    expiresIn: number;
+    error: string | null;
   } | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [busy, setBusy] = useState(false);
@@ -74,27 +76,33 @@ export function MarkersLibrary({
   const loadedSetSet = new Set(loadedSetIds);
   const markerById = new Map(markers.map((marker) => [marker.id, marker]));
   const libraryEmpty = markers.length === 0 && sets.length === 0;
+  const shareCodeValue = exporting?.code ?? null;
 
   useEffect(() => {
     if (!enterCode) return;
     codeInputRef.current?.focus();
   }, [enterCode]);
 
+  function clearExport() {
+    exportRequestRef.current += 1;
+    setExporting(null);
+    setCopyState("idle");
+  }
+
   function clearTransferUi() {
+    clearExport();
     setPending(null);
     setNotice(null);
     setEnterCode(false);
-    setShareCode(null);
-    setCopyState("idle");
     setCodeDraft("");
     setExportPick(false);
   }
 
   function applyImport(incoming: MarkersState, mode: "merge" | "replace") {
     const summary = onImport(incoming, mode);
+    clearExport();
     setPending(null);
     setEnterCode(false);
-    setShareCode(null);
     setNotice({
       kind: "ok",
       text: mode === "replace" ? formatReplaceSummary(summary) : formatImportSummary(summary),
@@ -102,8 +110,8 @@ export function MarkersLibrary({
   }
 
   function offerImport(document: MarkersState, name: string) {
+    clearExport();
     setNotice(null);
-    setShareCode(null);
     setEnterCode(false);
     setExportPick(false);
     if (libraryEmpty) {
@@ -143,7 +151,7 @@ export function MarkersLibrary({
       offerImport(document, `code ${code}`);
     } catch (err) {
       setPending(null);
-      setShareCode(null);
+      clearExport();
       setEnterCode(true);
       setNotice({
         kind: "error",
@@ -166,27 +174,32 @@ export function MarkersLibrary({
     const document = scope === "visible" ? visibleMarkersState(full) : full;
     if (document.markers.length === 0 && document.sets.length === 0) {
       setExportPick(false);
-      setShareCode(null);
+      clearExport();
       setNotice({ kind: "error", text: "Nothing visible to export." });
       return;
     }
+    const requestId = ++exportRequestRef.current;
     setBusy(true);
     setPending(null);
     setNotice(null);
     setEnterCode(false);
     setExportPick(false);
     setCopyState("idle");
+    setExporting({ document, code: null, expiresIn: 0, error: null });
     try {
       const result = await createShareCode(document);
-      setShareCode({ ...result, document });
+      if (requestId !== exportRequestRef.current) return;
+      setExporting({ document, code: result.code, expiresIn: result.expiresIn, error: null });
     } catch (err) {
-      setShareCode(null);
-      setNotice({
-        kind: "error",
-        text: err instanceof ShareRequestError ? err.message : "Could not create a share code.",
+      if (requestId !== exportRequestRef.current) return;
+      setExporting({
+        document,
+        code: null,
+        expiresIn: 0,
+        error: err instanceof ShareRequestError ? err.message : "Could not create a share code.",
       });
     } finally {
-      setBusy(false);
+      if (requestId === exportRequestRef.current) setBusy(false);
     }
   }
 
@@ -238,8 +251,7 @@ export function MarkersLibrary({
             onClick={() => {
               setPending(null);
               setNotice(null);
-              setShareCode(null);
-              setCopyState("idle");
+              clearExport();
               setCodeDraft("");
               setExportPick(false);
               setEnterCode(true);
@@ -255,8 +267,7 @@ export function MarkersLibrary({
               setPending(null);
               setNotice(null);
               setEnterCode(false);
-              setShareCode(null);
-              setCopyState("idle");
+              clearExport();
               setExportPick(true);
             }}
           >
@@ -291,28 +302,42 @@ export function MarkersLibrary({
             ×
           </button>
         </div>
-      ) : shareCode ? (
+      ) : exporting ? (
         <div className="import-choice">
-          <input
-            ref={shareCodeRef}
-            className="share-code"
-            value={shareCode.code}
-            readOnly
-            aria-label="Share code"
-            onFocus={(event) => event.currentTarget.select()}
-            onClick={(event) => event.currentTarget.select()}
-          />
-          <p>
-            Enter this code on the other device. Expires in{" "}
-            {Math.max(1, Math.round(shareCode.expiresIn / 60))} min.
-          </p>
-          <button type="button" className="text-btn" onClick={() => void copyShareCode(shareCode.code)}>
-            {copyState === "copied" ? "Copied" : copyState === "failed" ? "Couldn't copy" : "Copy"}
-          </button>
-          <button type="button" className="text-btn" onClick={() => onExport(shareCode.document)}>
+          {shareCodeValue ? (
+            <>
+              <input
+                ref={shareCodeRef}
+                className="share-code"
+                value={shareCodeValue}
+                readOnly
+                aria-label="Share code"
+                onFocus={(event) => event.currentTarget.select()}
+                onClick={(event) => event.currentTarget.select()}
+              />
+              <p>
+                Enter this code on the other device. Expires in{" "}
+                {Math.max(1, Math.round(exporting.expiresIn / 60))} min.
+              </p>
+            </>
+          ) : (
+            <p className={exporting.error ? "is-error" : undefined}>
+              {exporting.error ?? "Getting a share code…"}
+            </p>
+          )}
+          {shareCodeValue ? (
+            <button type="button" className="text-btn" onClick={() => void copyShareCode(shareCodeValue)}>
+              {copyState === "copied" ? "Copied" : copyState === "failed" ? "Couldn't copy" : "Copy"}
+            </button>
+          ) : exporting.error ? null : (
+            <button type="button" className="text-btn" disabled>
+              Copy
+            </button>
+          )}
+          <button type="button" className="text-btn" onClick={() => onExport(exporting.document)}>
             Save file
           </button>
-          <button type="button" className="icon-btn" aria-label="Dismiss share code" onClick={clearTransferUi}>
+          <button type="button" className="icon-btn" aria-label="Dismiss export" onClick={clearTransferUi}>
             ×
           </button>
         </div>
@@ -383,7 +408,7 @@ export function MarkersLibrary({
           </button>
         </div>
       ) : null}
-      {notice && !pending && !shareCode && !exportPick ? (
+      {notice && !pending && !exporting && !exportPick ? (
         <p className={`import-status${notice.kind === "error" ? " is-error" : ""}`}>{notice.text}</p>
       ) : null}
 
