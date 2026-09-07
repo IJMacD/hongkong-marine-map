@@ -257,9 +257,9 @@ body,
   display: block;
 }
 
-.leaflet-control-place a.is-active,
-.leaflet-control-history a.is-active,
-.leaflet-control-tides a.is-active {
+.leaflet-control-place a.leaflet-control-place-button.is-active,
+.leaflet-control-history a.leaflet-control-history-button.is-active,
+.leaflet-control-tides a.leaflet-control-tides-button.is-active {
   color: #7eb8da;
 }
 
