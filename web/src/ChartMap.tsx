@@ -272,6 +272,7 @@ export function ChartMap({
   useEffect(() => {
     placeControlRef.current?.setActive(placeMode);
     mapRef.current?.getContainer().classList.toggle("is-placing", placeMode);
+    if (placeMode) skipMapClickRef.current = false;
   }, [placeMode, mapEpoch]);
 
   useEffect(() => {
@@ -310,16 +311,22 @@ export function ChartMap({
       const pin = L.marker([marker.lat, marker.lng], {
         icon: markerIcon(selected),
         title: marker.name,
+        interactive: !placeMode,
         zIndexOffset: selected ? 500 : 0,
       });
-      pin.on("click", (event) => {
-        L.DomEvent.stopPropagation(event);
-        skipMapClickRef.current = true;
-        callbacksRef.current.onSelect(marker.id);
-      });
+      if (!placeMode) {
+        pin.on("click", (event) => {
+          L.DomEvent.stopPropagation(event);
+          skipMapClickRef.current = true;
+          callbacksRef.current.onSelect(marker.id);
+          window.setTimeout(() => {
+            skipMapClickRef.current = false;
+          }, 0);
+        });
+      }
       pin.addTo(group);
     }
-  }, [markers, selectedId, mapEpoch]);
+  }, [markers, selectedId, placeMode, mapEpoch]);
 
   useEffect(() => {
     const group = lineGroupRef.current;
