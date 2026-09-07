@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { bearingTrue, distanceNmi, formatBearing, formatRangeNmi } from "./geo";
 import {
   createShareCode,
@@ -12,7 +12,17 @@ import {
   visibleMarkersState,
   type ImportSummary,
 } from "./markersTransfer";
-import { setLineColor, type ChartMarker, type MarkerSet, type MarkersState } from "./markersTypes";
+import {
+  buildSetTree,
+  folderPathKey,
+  setLineColor,
+  setNameParts,
+  treeSetIds,
+  type ChartMarker,
+  type MarkerSet,
+  type MarkersState,
+  type SetTree,
+} from "./markersTypes";
 
 type Props = {
   markers: ChartMarker[];
@@ -25,10 +35,12 @@ type Props = {
   onRenameMarker: (id: string, name: string) => void;
   onDeleteMarker: (id: string) => void;
   onToggleMarkerLoaded: (id: string) => void;
-  onAddSet: () => void;
+  onAddSet: (folderPath?: string[]) => MarkerSet;
   onRenameSet: (id: string, name: string) => void;
+  onRenameFolder: (path: string[], name: string) => void;
   onDeleteSet: (id: string) => void;
   onToggleSetLoaded: (id: string) => void;
+  onSetSetsLoaded: (ids: string[], loaded: boolean) => void;
   onAddMarkerToSet: (setId: string, markerId: string) => void;
   onRemoveMarkerFromSet: (setId: string, index: number) => void;
   onExport: (state: MarkersState) => void;
@@ -48,8 +60,10 @@ export function MarkersLibrary({
   onToggleMarkerLoaded,
   onAddSet,
   onRenameSet,
+  onRenameFolder,
   onDeleteSet,
   onToggleSetLoaded,
+  onSetSetsLoaded,
   onAddMarkerToSet,
   onRemoveMarkerFromSet,
   onExport,
@@ -72,8 +86,11 @@ export function MarkersLibrary({
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [busy, setBusy] = useState(false);
   const [exportPick, setExportPick] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set());
+  const [expandedSets, setExpandedSets] = useState<Set<string>>(() => new Set());
   const loadedMarkerSet = new Set(loadedMarkerIds);
   const loadedSetSet = new Set(loadedSetIds);
+  const setTree = useMemo(() => buildSetTree(sets), [sets]);
   const markerById = new Map(markers.map((marker) => [marker.id, marker]));
   const libraryEmpty = markers.length === 0 && sets.length === 0;
   const shareCodeValue = exporting?.code ?? null;
@@ -231,6 +248,24 @@ export function MarkersLibrary({
       /* ignore */
     }
     setCopyState("failed");
+  }
+
+  function addSetIn(folderPath: string[] = []) {
+    const set = onAddSet(folderPath);
+    if (folderPath.length > 0) {
+      const paths: string[][] = [];
+      for (let i = 1; i <= folderPath.length; i += 1) paths.push(folderPath.slice(0, i));
+      setExpandedFolders((prev) => {
+        const next = new Set(prev);
+        for (const folder of paths) next.add(folderPathKey(folder));
+        return next;
+      });
+    }
+    setExpandedSets((prev) => {
+      const next = new Set(prev);
+      next.add(set.id);
+      return next;
+    });
   }
 
   return (
@@ -442,7 +477,7 @@ export function MarkersLibrary({
 
       <header className="panel-subheader">
         <h3>Sets</h3>
-        <button type="button" className="text-btn" onClick={onAddSet}>
+        <button type="button" className="text-btn" onClick={() => addSetIn()}>
           New set
         </button>
       </header>
@@ -451,20 +486,197 @@ export function MarkersLibrary({
         {sets.length === 0 ? (
           <p className="panel-empty">Group markers into an ordered route. A marker can appear more than once.</p>
         ) : (
-          <ul className="panel-list set-list">
-            {sets.map((set, index) => (
-              <li key={set.id} className="set-block">
-                <Row
-                  checked={loadedSetSet.has(set.id)}
-                  onToggle={() => onToggleSetLoaded(set.id)}
-                  toggleLabel={`Show set ${set.name}`}
-                  name={set.name}
-                  swatch={setLineColor(index)}
-                  onRename={(name) => onRenameSet(set.id, name)}
-                  onDelete={() => {
-                    if (window.confirm(`Delete set “${set.name}”? Markers will be kept.`)) onDeleteSet(set.id);
-                  }}
+          <SetTreeList
+            tree={setTree}
+            path={[]}
+            markers={markers}
+            markerById={markerById}
+            selectedId={selectedId}
+            loadedSetSet={loadedSetSet}
+            expandedFolders={expandedFolders}
+            expandedSets={expandedSets}
+            onToggleFolder={(key) => {
+              setExpandedFolders((prev) => {
+                const next = new Set(prev);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              });
+            }}
+            onToggleSet={(id) => {
+              setExpandedSets((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              });
+            }}
+            onExpandFolders={(paths) => {
+              setExpandedFolders((prev) => {
+                const next = new Set(prev);
+                for (const folderPath of paths) next.add(folderPathKey(folderPath));
+                return next;
+              });
+            }}
+            onSelectMarker={onSelectMarker}
+            onRenameSet={onRenameSet}
+            onRenameFolder={onRenameFolder}
+            onDeleteSet={onDeleteSet}
+            onToggleSetLoaded={onToggleSetLoaded}
+            onSetSetsLoaded={onSetSetsLoaded}
+            onAddSetIn={addSetIn}
+            onAddMarkerToSet={onAddMarkerToSet}
+            onRemoveMarkerFromSet={onRemoveMarkerFromSet}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SetTreeList({
+  tree,
+  path,
+  markers,
+  markerById,
+  selectedId,
+  loadedSetSet,
+  expandedFolders,
+  expandedSets,
+  onToggleFolder,
+  onToggleSet,
+  onExpandFolders,
+  onSelectMarker,
+  onRenameSet,
+  onRenameFolder,
+  onDeleteSet,
+  onToggleSetLoaded,
+  onSetSetsLoaded,
+  onAddSetIn,
+  onAddMarkerToSet,
+  onRemoveMarkerFromSet,
+}: {
+  tree: SetTree;
+  path: string[];
+  markers: ChartMarker[];
+  markerById: Map<string, ChartMarker>;
+  selectedId: string | null;
+  loadedSetSet: Set<string>;
+  expandedFolders: Set<string>;
+  expandedSets: Set<string>;
+  onToggleFolder: (key: string) => void;
+  onToggleSet: (id: string) => void;
+  onExpandFolders: (paths: string[][]) => void;
+  onSelectMarker: (id: string) => void;
+  onRenameSet: (id: string, name: string) => void;
+  onRenameFolder: (path: string[], name: string) => void;
+  onDeleteSet: (id: string) => void;
+  onToggleSetLoaded: (id: string) => void;
+  onSetSetsLoaded: (ids: string[], loaded: boolean) => void;
+  onAddSetIn: (folderPath: string[]) => void;
+  onAddMarkerToSet: (setId: string, markerId: string) => void;
+  onRemoveMarkerFromSet: (setId: string, index: number) => void;
+}) {
+  return (
+    <ul className={`panel-list set-list${path.length > 0 ? " set-tree-nested" : ""}`}>
+      {tree.entries.map((entry) => {
+        if (entry.kind === "folder") {
+          const folderPath = [...path, entry.name];
+          const key = folderPathKey(folderPath);
+          const expanded = expandedFolders.has(key);
+          const ids = treeSetIds(entry.tree);
+          const loadedCount = ids.reduce((count, id) => count + (loadedSetSet.has(id) ? 1 : 0), 0);
+          const allLoaded = ids.length > 0 && loadedCount === ids.length;
+          const mixed = loadedCount > 0 && !allLoaded;
+          return (
+            <li key={`folder:${key}`} className="folder-block">
+              <Row
+                checked={allLoaded}
+                indeterminate={mixed}
+                onToggle={() => onSetSetsLoaded(ids, !allLoaded)}
+                toggleLabel={`Show sets in ${folderPath.join("/")}`}
+                name={entry.name}
+                caret={{
+                  expanded,
+                  label: expanded ? `Collapse folder ${entry.name}` : `Expand folder ${entry.name}`,
+                  onToggle: () => onToggleFolder(key),
+                }}
+                onSelect={() => onToggleFolder(key)}
+                onRename={(name) => {
+                  onRenameFolder(folderPath, name);
+                  const segments = name.split("/").map((part) => part.trim()).filter(Boolean);
+                  if (segments.length === 0) return;
+                  const paths: string[][] = [];
+                  const acc = [...path];
+                  for (const segment of segments) {
+                    acc.push(segment);
+                    paths.push([...acc]);
+                  }
+                  onExpandFolders(paths);
+                }}
+                onAdd={() => onAddSetIn(folderPath)}
+                addLabel={`New set in ${folderPath.join("/")}`}
+              />
+              {expanded ? (
+                <SetTreeList
+                  tree={entry.tree}
+                  path={folderPath}
+                  markers={markers}
+                  markerById={markerById}
+                  selectedId={selectedId}
+                  loadedSetSet={loadedSetSet}
+                  expandedFolders={expandedFolders}
+                  expandedSets={expandedSets}
+                  onToggleFolder={onToggleFolder}
+                  onToggleSet={onToggleSet}
+                  onExpandFolders={onExpandFolders}
+                  onSelectMarker={onSelectMarker}
+                  onRenameSet={onRenameSet}
+                  onRenameFolder={onRenameFolder}
+                  onDeleteSet={onDeleteSet}
+                  onToggleSetLoaded={onToggleSetLoaded}
+                  onSetSetsLoaded={onSetSetsLoaded}
+                  onAddSetIn={onAddSetIn}
+                  onAddMarkerToSet={onAddMarkerToSet}
+                  onRemoveMarkerFromSet={onRemoveMarkerFromSet}
                 />
+              ) : null}
+            </li>
+          );
+        }
+
+        const { set, index } = entry;
+        const { title } = setNameParts(set.name);
+        const expanded = expandedSets.has(set.id);
+        return (
+          <li key={set.id} className="set-block">
+            <Row
+              checked={loadedSetSet.has(set.id)}
+              onToggle={() => onToggleSetLoaded(set.id)}
+              toggleLabel={`Show set ${set.name}`}
+              name={title}
+              editName={set.name}
+              swatch={setLineColor(index)}
+              caret={{
+                expanded,
+                label: expanded ? `Collapse set ${title}` : `Expand set ${title}`,
+                onToggle: () => onToggleSet(set.id),
+              }}
+              onRename={(name) => {
+                onRenameSet(set.id, name);
+                const nextFolders = setNameParts(name).folders;
+                if (nextFolders.length > 0) {
+                  const paths: string[][] = [];
+                  for (let i = 1; i <= nextFolders.length; i += 1) paths.push(nextFolders.slice(0, i));
+                  onExpandFolders(paths);
+                }
+              }}
+              onDelete={() => {
+                if (window.confirm(`Delete set “${set.name}”? Markers will be kept.`)) onDeleteSet(set.id);
+              }}
+            />
+            {expanded ? (
+              <>
                 <ol className="set-members">
                   {set.markerIds.map((markerId, memberIndex) => {
                     const marker = markerById.get(markerId);
@@ -501,45 +713,100 @@ export function MarkersLibrary({
                   })}
                 </ol>
                 <AddToSetSelect markers={markers} onAdd={(markerId) => onAddMarkerToSet(set.id, markerId)} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
+              </>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
 function Row({
   checked,
+  indeterminate,
   onToggle,
   toggleLabel,
   name,
+  editName,
   selected,
   swatch,
+  caret,
   onSelect,
   onRename,
   onDelete,
+  onAdd,
+  addLabel,
 }: {
   checked: boolean;
+  indeterminate?: boolean;
   onToggle: () => void;
   toggleLabel: string;
   name: string;
+  editName?: string;
   selected?: boolean;
   swatch?: string;
+  caret?: { expanded: boolean; label: string; onToggle: () => void };
   onSelect?: () => void;
   onRename: (name: string) => void;
-  onDelete: () => void;
+  onDelete?: () => void;
+  onAdd?: () => void;
+  addLabel?: string;
 }) {
+  const checkRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (checkRef.current) checkRef.current.indeterminate = Boolean(indeterminate);
+  }, [indeterminate]);
+
   return (
     <div className="panel-row">
-      <input type="checkbox" checked={checked} onChange={onToggle} aria-label={toggleLabel} />
+      {caret ? (
+        <button
+          type="button"
+          className={`tree-caret${caret.expanded ? " is-expanded" : ""}`}
+          aria-expanded={caret.expanded}
+          aria-label={caret.label}
+          onClick={caret.onToggle}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M9 6.5 15 12l-6 5.5z" />
+          </svg>
+        </button>
+      ) : null}
+      <input
+        ref={checkRef}
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        aria-label={toggleLabel}
+      />
       {swatch ? <span className="set-swatch" style={{ background: swatch }} aria-hidden /> : null}
-      <EditableName name={name} selected={selected} onSelect={onSelect} onRename={onRename} />
-      <button type="button" className="icon-btn" aria-label={`Delete ${name}`} onClick={onDelete}>
-        <TrashIcon />
-      </button>
+      <EditableName
+        name={name}
+        editName={editName}
+        selected={selected}
+        onSelect={onSelect}
+        onRename={onRename}
+      />
+      {onAdd ? (
+        <button type="button" className="icon-btn" aria-label={addLabel ?? `New set in ${name}`} onClick={onAdd}>
+          <PlusIcon />
+        </button>
+      ) : null}
+      {onDelete ? (
+        <button type="button" className="icon-btn" aria-label={`Delete ${name}`} onClick={onDelete}>
+          <TrashIcon />
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+    </svg>
   );
 }
 
@@ -556,21 +823,24 @@ function TrashIcon() {
 
 function EditableName({
   name,
+  editName,
   selected,
   onSelect,
   onRename,
 }: {
   name: string;
+  editName?: string;
   selected?: boolean;
   onSelect?: () => void;
   onRename: (name: string) => void;
 }) {
+  const stored = editName ?? name;
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(name);
+  const [draft, setDraft] = useState(stored);
 
   useEffect(() => {
-    setDraft(name);
-  }, [name]);
+    setDraft(stored);
+  }, [stored]);
 
   if (editing) {
     return (
@@ -587,7 +857,7 @@ function EditableName({
         onKeyDown={(event) => {
           if (event.key === "Enter") event.currentTarget.blur();
           if (event.key === "Escape") {
-            setDraft(name);
+            setDraft(stored);
             setEditing(false);
           }
         }}
@@ -601,7 +871,15 @@ function EditableName({
       className={`name-btn${selected ? " is-selected" : ""}`}
       onClick={onSelect ?? (() => setEditing(true))}
       onDoubleClick={() => setEditing(true)}
-      title={onSelect ? "Select · double-click to rename" : "Click to rename"}
+      title={
+        onSelect
+          ? stored !== name
+            ? `${stored} · double-click to rename`
+            : "Expand · double-click to rename"
+          : stored !== name
+            ? `${stored} · click to rename`
+            : "Click to rename"
+      }
     >
       {name}
     </button>

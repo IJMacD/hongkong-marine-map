@@ -660,7 +660,8 @@ body,
 .name-input,
 .add-to-set,
 .text-btn,
-.icon-btn {
+.icon-btn,
+.tree-caret {
   font: inherit;
   color: inherit;
 }
@@ -760,9 +761,47 @@ body,
   padding-bottom: 6px;
 }
 
+.folder-block {
+  padding-bottom: 2px;
+}
+
+.set-tree-nested {
+  margin: 2px 0 4px 14px;
+}
+
+.tree-caret {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #9db4c8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-caret:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tree-caret svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+  transition: transform 0.12s ease;
+}
+
+.tree-caret.is-expanded svg {
+  transform: rotate(90deg);
+}
+
 .set-members {
   list-style: none;
-  margin: 4px 0 6px 22px;
+  margin: 4px 0 6px 42px;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -820,8 +859,8 @@ body,
 
 .add-to-set {
   display: block;
-  width: calc(100% - 22px);
-  margin: 0 0 4px 22px;
+  width: calc(100% - 42px);
+  margin: 0 0 4px 42px;
   color: #e8eef4;
   background: #132536;
   border: 1px solid rgba(157, 180, 200, 0.3);

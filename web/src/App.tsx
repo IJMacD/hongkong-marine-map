@@ -157,8 +157,10 @@ export default function App() {
             onToggleMarkerLoaded={markersState.toggleMarkerLoaded}
             onAddSet={markersState.addSet}
             onRenameSet={markersState.renameSet}
+            onRenameFolder={markersState.renameFolder}
             onDeleteSet={markersState.deleteSet}
             onToggleSetLoaded={markersState.toggleSetLoaded}
+            onSetSetsLoaded={markersState.setSetsLoaded}
             onAddMarkerToSet={markersState.addMarkerToSet}
             onRemoveMarkerFromSet={markersState.removeMarkerFromSet}
             onExport={onExportMarkers}

@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadMarkersState, saveMarkersState } from "./markersStorage";
 import { mergeMarkersState, replaceMarkersState, type ImportSummary } from "./markersTransfer";
-import { nextIndexedName, type ChartMarker, type MarkerSet, type MarkersState } from "./markersTypes";
+import {
+  joinSetPath,
+  nextIndexedName,
+  renameFolderSegment,
+  type ChartMarker,
+  type MarkerSet,
+  type MarkersState,
+} from "./markersTypes";
 
 function newId(): string {
   const c = globalThis.crypto;
@@ -94,14 +101,15 @@ export function useMarkersState() {
     }));
   }, []);
 
-  const addSet = useCallback((): MarkerSet => {
+  const addSet = useCallback((folderPath: string[] = []): MarkerSet => {
+    const folders = folderPath.map((part) => part.trim()).filter(Boolean);
     const set: MarkerSet = {
       id: newId(),
       name: "Set",
       markerIds: [],
     };
     setState((prev) => {
-      set.name = nextIndexedName(prev.sets, "Set");
+      set.name = nextIndexedName(prev.sets, joinSetPath(folders, "Set"));
       return {
         ...prev,
         sets: [...prev.sets, set],
@@ -135,6 +143,44 @@ export function useMarkersState() {
         ? prev.loadedSetIds.filter((setId) => setId !== id)
         : [...prev.loadedSetIds, id],
     }));
+  }, []);
+
+  const setSetsLoaded = useCallback((ids: string[], loaded: boolean) => {
+    if (ids.length === 0) return;
+    setState((prev) => {
+      const current = new Set(prev.loadedSetIds);
+      let changed = false;
+      for (const id of ids) {
+        if (loaded) {
+          if (!current.has(id)) {
+            current.add(id);
+            changed = true;
+          }
+        } else if (current.delete(id)) {
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return {
+        ...prev,
+        loadedSetIds: prev.sets.map((set) => set.id).filter((id) => current.has(id)),
+      };
+    });
+  }, []);
+
+  const renameFolder = useCallback((path: string[], name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || path.length === 0) return;
+    setState((prev) => {
+      let changed = false;
+      const sets = prev.sets.map((set) => {
+        const nextName = renameFolderSegment(set.name, path, trimmed);
+        if (nextName === set.name) return set;
+        changed = true;
+        return { ...set, name: nextName };
+      });
+      return changed ? { ...prev, sets } : prev;
+    });
   }, []);
 
   const addMarkerToSet = useCallback((setId: string, markerId: string) => {
@@ -187,6 +233,8 @@ export function useMarkersState() {
     renameSet,
     deleteSet,
     toggleSetLoaded,
+    setSetsLoaded,
+    renameFolder,
     addMarkerToSet,
     removeMarkerFromSet,
     importMarkers,
