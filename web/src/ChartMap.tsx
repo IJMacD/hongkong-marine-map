@@ -90,6 +90,7 @@ export function ChartMap({
   const tidesLayerRef = useRef<TidalStreamLayer | null>(null);
   const versionIdRef = useRef(version?.id ?? "latest");
   const skipMapClickRef = useRef(false);
+  const markersRef = useRef(markers);
   const [mapEpoch, setMapEpoch] = useState(0);
   const callbacksRef = useRef({
     onPlace,
@@ -106,6 +107,7 @@ export function ChartMap({
   });
 
   versionIdRef.current = version?.id ?? "latest";
+  markersRef.current = markers;
   callbacksRef.current = {
     onPlace,
     onSelect,
@@ -337,10 +339,10 @@ export function ChartMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !focusToken) return;
-    const marker = markers.find((item) => item.id === focusToken.id);
+    const marker = markersRef.current.find((item) => item.id === focusToken.id);
     if (!marker) return;
     map.panTo([marker.lat, marker.lng]);
-  }, [focusToken, markers, mapEpoch]);
+  }, [focusToken, mapEpoch]);
 
   return <div ref={containerRef} className="map" />;
 }
