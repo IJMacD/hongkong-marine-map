@@ -3,6 +3,8 @@ export type UserPosition = {
   lng: number;
   accuracy: number;
   speed: number | null;
+  /** GPS course over ground. Null when the browser does not report it. */
+  course: number | null;
   heading: number | null;
 };
 
@@ -41,6 +43,7 @@ export function watchUserPosition(
         lng: longitude,
         accuracy,
         speed: finiteSpeed(speed),
+        course: finiteHeading(heading),
         heading: finiteHeading(heading),
       });
     },

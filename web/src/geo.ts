@@ -33,6 +33,31 @@ export function bearingTrue(from: LatLng, to: LatLng): number {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+export function formatEtaFromVmg(
+  rangeNmi: number,
+  speedMps: number | null,
+  courseDeg: number | null,
+  bearingDeg: number,
+): string {
+  if (!Number.isFinite(rangeNmi)) return "—";
+  if (rangeNmi < 0.01) return "<1m";
+  if (speedMps == null || courseDeg == null) return "—";
+  const knots = (speedMps * 3600) / METERS_PER_NAUTICAL_MILE;
+  let delta = ((courseDeg - bearingDeg) % 360 + 360) % 360;
+  if (delta > 180) delta -= 360;
+  const vmg = knots * Math.cos(toRad(delta));
+  if (!(vmg > 0)) return "—";
+  const minutes = Math.round((rangeNmi / vmg) * 60);
+  if (!Number.isFinite(minutes) || minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours < 48) return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours === 0 ? `${days}d` : `${days}d ${remHours}h`;
+}
+
 export function formatSpeedKnots(mps: number | null): string {
   if (mps == null || !Number.isFinite(mps)) return "—";
   const knots = (mps * 3600) / METERS_PER_NAUTICAL_MILE;

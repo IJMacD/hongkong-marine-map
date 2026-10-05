@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bearingTrue, distanceNmi, formatBearing, formatCoord, formatRangeNmi, parseCoord } from "./geo";
+import { bearingTrue, distanceNmi, formatBearing, formatCoord, formatEtaFromVmg, formatRangeNmi, parseCoord } from "./geo";
 import { setLineColor, type ChartMarker, type MarkerSet } from "./markersTypes";
 import type { LocateState } from "./LocateControl";
 import { isGeolocationAvailable, type UserPosition } from "./userLocation";
@@ -50,9 +50,12 @@ export function MarkerDetail({
   const fromGps = useMemo(() => {
     if (!userPosition) return null;
     const from = { lat: userPosition.lat, lng: userPosition.lng };
+    const bearing = bearingTrue(from, marker);
+    const range = distanceNmi(from, marker);
     return {
-      bearing: bearingTrue(from, marker),
-      range: distanceNmi(from, marker),
+      bearing,
+      range,
+      eta: formatEtaFromVmg(range, userPosition.speed, userPosition.course, bearing),
     };
   }, [userPosition, marker]);
 
@@ -162,7 +165,7 @@ export function MarkerDetail({
       </div>
 
       {fromGps ? (
-        <BrgRng legend="From GPS" bearing={fromGps.bearing} range={fromGps.range} />
+        <BrgRng legend="From GPS" bearing={fromGps.bearing} range={fromGps.range} eta={fromGps.eta} />
       ) : !isGeolocationAvailable() || locateState === "error" ? (
         <p className="brg-status">Location unavailable.</p>
       ) : locateState === "locating" ? (
@@ -255,12 +258,14 @@ function BrgRng({
   swatch,
   bearing,
   range,
+  eta,
 }: {
   legend: string;
   hint?: string;
   swatch?: string;
   bearing: number;
   range: number;
+  eta?: string;
 }) {
   return (
     <div className="brg-rng">
@@ -269,7 +274,7 @@ function BrgRng({
         <span>{legend}</span>
         {hint ? <span className="brg-hint">{hint}</span> : null}
       </div>
-      <div className="brg-values">
+      <div className={`brg-values${eta != null ? " has-eta" : ""}`}>
         <div>
           <span className="brg-label">BRG</span>
           <span className="brg-value">{formatBearing(bearing)}</span>
@@ -278,6 +283,12 @@ function BrgRng({
           <span className="brg-label">RNG</span>
           <span className="brg-value">{formatRangeNmi(range)}</span>
         </div>
+        {eta != null ? (
+          <div>
+            <span className="brg-label">ETA</span>
+            <span className="brg-value">{eta}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -987,6 +987,10 @@ body,
   gap: 8px;
 }
 
+.brg-values.has-eta {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .brg-values > div {
   display: flex;
   flex-direction: column;
