@@ -12,8 +12,11 @@ export type LocateState = "idle" | "locating" | "following" | "off-center" | "er
 const ICON_HTML =
   '<div class="user-location-heading-wrap is-hidden"><div class="user-location-heading"></div></div><div class="user-location-dot"></div>';
 
-const BUTTON_SVG =
-  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+const ICON_IDLE =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.94 11A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+
+const ICON_FIX =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 .001 8.001A4 4 0 0 0 12 8zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
 
 const TITLES: Record<LocateState, string> = {
   idle: "Show my location",
@@ -34,6 +37,7 @@ export class LocateControl extends L.Control {
   private headingEl: HTMLElement | null = null;
   private lastPosition: UserPosition | undefined;
   private compassHeading: number | null = null;
+  private showingFixIcon = false;
 
   constructor(options?: L.ControlOptions) {
     super({ position: "topleft", ...options });
@@ -45,7 +49,7 @@ export class LocateControl extends L.Control {
     const button = L.DomUtil.create("a", "leaflet-control-locate-button", bar) as HTMLAnchorElement;
     button.href = "#";
     button.role = "button";
-    button.innerHTML = BUTTON_SVG;
+    button.innerHTML = ICON_IDLE;
     this.button = button;
     this.setState("idle");
 
@@ -229,8 +233,14 @@ export class LocateControl extends L.Control {
     this.mapRef?.fire("locatestate", { state });
     const button = this.button;
     if (!button) return;
+    const hasFix = state === "following" || state === "off-center";
+    if (hasFix !== this.showingFixIcon) {
+      button.innerHTML = hasFix ? ICON_FIX : ICON_IDLE;
+      this.showingFixIcon = hasFix;
+    }
     button.title = TITLES[state];
     button.setAttribute("aria-label", TITLES[state]);
+    button.setAttribute("aria-pressed", hasFix ? "true" : "false");
     button.classList.toggle("is-locating", state === "locating");
     button.classList.toggle("is-following", state === "following");
     button.classList.toggle("is-off-center", state === "off-center");

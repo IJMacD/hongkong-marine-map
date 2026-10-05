@@ -267,20 +267,34 @@ body,
   cursor: crosshair;
 }
 
-.leaflet-control-locate a.is-locating {
-  color: #7eb8da;
+.leaflet-control-locate a.leaflet-control-locate-button.is-locating {
+  color: #5eb6f0;
   animation: locate-pulse 1s ease-in-out infinite;
 }
 
-.leaflet-control-locate a.is-following {
-  color: #7eb8da;
+.leaflet-control-locate a.leaflet-control-locate-button.is-following {
+  color: #3d9ee5;
+  background: rgba(61, 158, 229, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(94, 182, 240, 0.9);
 }
 
-.leaflet-control-locate a.is-off-center {
-  color: #9db4c8;
+.leaflet-control-locate a.leaflet-control-locate-button.is-following:hover {
+  color: #8fd0f8;
+  background: rgba(61, 158, 229, 0.42);
 }
 
-.leaflet-control-locate a.is-error {
+.leaflet-control-locate a.leaflet-control-locate-button.is-off-center {
+  color: #5eb6f0;
+  background: rgba(61, 158, 229, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(94, 182, 240, 0.45);
+}
+
+.leaflet-control-locate a.leaflet-control-locate-button.is-off-center:hover {
+  color: #8fd0f8;
+  background: rgba(61, 158, 229, 0.3);
+}
+
+.leaflet-control-locate a.leaflet-control-locate-button.is-error {
   color: #e07a7a;
 }
 
