@@ -6,9 +6,12 @@ import { PlaceMarkerControl } from "./PlaceMarkerControl";
 import { SpeedHeadingControl } from "./SpeedHeadingControl";
 import { TidalStreamLayer } from "./TidalStreamLayer";
 import { TidesControl } from "./TidesControl";
+import { TracksControl } from "./TracksControl";
 import type { ChartMarker } from "./markersTypes";
+import type { TrackBounds } from "./tracksTypes";
 import type { TileJSON, VersionInfo } from "./types";
 import type { TidalVector } from "./useTidalCurrents";
+import type { VisibleTrack } from "./useTracksState";
 import { readLocation, writeLocation } from "./urlState";
 import type { UserPosition } from "./userLocation";
 
@@ -20,6 +23,11 @@ export type SetRoute = {
 
 export type FocusToken = {
   id: string;
+  nonce: number;
+};
+
+export type TrackFocus = {
+  bounds: TrackBounds;
   nonce: number;
 };
 
@@ -44,6 +52,11 @@ type Props = {
   tidesOpen: boolean;
   tidalVectors: TidalVector[];
   onTidesToggle: () => void;
+  tracksOpen: boolean;
+  onTracksToggle: () => void;
+  visibleTracks: VisibleTrack[];
+  trackFocus: TrackFocus | null;
+  onChartBounds: (bounds: TrackBounds) => void;
   libraryOpen: boolean;
   onLibraryClose: () => void;
 };
@@ -83,6 +96,11 @@ export function ChartMap({
   tidesOpen,
   tidalVectors,
   onTidesToggle,
+  tracksOpen,
+  onTracksToggle,
+  visibleTracks,
+  trackFocus,
+  onChartBounds,
   libraryOpen,
   onLibraryClose,
 }: Props) {
@@ -91,6 +109,8 @@ export function ChartMap({
   const layerRef = useRef<L.TileLayer | null>(null);
   const markerGroupRef = useRef<L.LayerGroup | null>(null);
   const lineGroupRef = useRef<L.LayerGroup | null>(null);
+  const trackGroupRef = useRef<L.LayerGroup | null>(null);
+  const tracksControlRef = useRef<TracksControl | null>(null);
   const placeControlRef = useRef<PlaceMarkerControl | null>(null);
   const historyControlRef = useRef<HistoryControl | null>(null);
   const tidesControlRef = useRef<TidesControl | null>(null);
@@ -109,6 +129,8 @@ export function ChartMap({
     onMotionToggle,
     onHistoryToggle,
     onTidesToggle,
+    onTracksToggle,
+    onChartBounds,
     onLibraryClose,
     placeMode,
     selectedId,
@@ -126,6 +148,8 @@ export function ChartMap({
     onMotionToggle,
     onHistoryToggle,
     onTidesToggle,
+    onTracksToggle,
+    onChartBounds,
     onLibraryClose,
     placeMode,
     selectedId,
@@ -163,12 +187,18 @@ export function ChartMap({
     });
     tidesControl.addTo(map);
     tidesControlRef.current = tidesControl;
+    const tracksControl = new TracksControl({
+      onToggle: () => callbacksRef.current.onTracksToggle(),
+    });
+    tracksControl.addTo(map);
+    tracksControlRef.current = tracksControl;
     const motionControl = new SpeedHeadingControl({
       onToggle: () => callbacksRef.current.onMotionToggle(),
     });
     motionControl.addTo(map);
     motionControlRef.current = motionControl;
 
+    trackGroupRef.current = L.layerGroup().addTo(map);
     lineGroupRef.current = L.layerGroup().addTo(map);
     markerGroupRef.current = L.layerGroup().addTo(map);
 
@@ -232,6 +262,8 @@ export function ChartMap({
       layerRef.current = null;
       markerGroupRef.current = null;
       lineGroupRef.current = null;
+      trackGroupRef.current = null;
+      tracksControlRef.current = null;
       placeControlRef.current = null;
       historyControlRef.current = null;
       tidesControlRef.current = null;
@@ -254,6 +286,7 @@ export function ChartMap({
         if (cancelled || !mapRef.current) return;
         const [west, south, east, north] = tilejson.bounds;
         const bounds = L.latLngBounds([south, west], [north, east]);
+        callbacksRef.current.onChartBounds({ south, west, north, east });
         map.setMaxBounds(bounds.pad(0.05));
         map.setMinZoom(tilejson.minzoom);
         const maxZoom = tilejson.maxzoom + OVERZOOM;
@@ -298,6 +331,10 @@ export function ChartMap({
   useEffect(() => {
     tidesControlRef.current?.setActive(tidesOpen);
   }, [tidesOpen, mapEpoch]);
+
+  useEffect(() => {
+    tracksControlRef.current?.setActive(tracksOpen);
+  }, [tracksOpen, mapEpoch]);
 
   useEffect(() => {
     const hasFix = locateState === "following" || locateState === "off-center";
@@ -364,6 +401,38 @@ export function ChartMap({
       }).addTo(group);
     }
   }, [setRoutes, mapEpoch]);
+
+  useEffect(() => {
+    const group = trackGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
+    for (const { track, color } of visibleTracks) {
+      for (const segment of track.segments) {
+        L.polyline(
+          segment.map((point) => [point.lat, point.lng] as [number, number]),
+          {
+            color,
+            weight: 3,
+            opacity: 0.9,
+            interactive: false,
+          },
+        ).addTo(group);
+      }
+    }
+  }, [visibleTracks, mapEpoch]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !trackFocus) return;
+    const { south, west, north, east } = trackFocus.bounds;
+    map.fitBounds(
+      [
+        [south, west],
+        [north, east],
+      ],
+      { padding: [32, 32] },
+    );
+  }, [trackFocus, mapEpoch]);
 
   useEffect(() => {
     const map = mapRef.current;

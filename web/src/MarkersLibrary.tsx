@@ -722,7 +722,7 @@ function SetTreeList({
   );
 }
 
-function Row({
+export function Row({
   checked,
   indeterminate,
   onToggle,
@@ -733,6 +733,7 @@ function Row({
   swatch,
   caret,
   onSelect,
+  selectHint,
   onRename,
   onDelete,
   onAdd,
@@ -748,6 +749,7 @@ function Row({
   swatch?: string;
   caret?: { expanded: boolean; label: string; onToggle: () => void };
   onSelect?: () => void;
+  selectHint?: string;
   onRename: (name: string) => void;
   onDelete?: () => void;
   onAdd?: () => void;
@@ -786,6 +788,7 @@ function Row({
         editName={editName}
         selected={selected}
         onSelect={onSelect}
+        selectHint={selectHint}
         onRename={onRename}
       />
       {onAdd ? (
@@ -821,17 +824,19 @@ function TrashIcon() {
   );
 }
 
-function EditableName({
+export function EditableName({
   name,
   editName,
   selected,
   onSelect,
+  selectHint = "Expand",
   onRename,
 }: {
   name: string;
   editName?: string;
   selected?: boolean;
   onSelect?: () => void;
+  selectHint?: string;
   onRename: (name: string) => void;
 }) {
   const stored = editName ?? name;
@@ -875,7 +880,7 @@ function EditableName({
         onSelect
           ? stored !== name
             ? `${stored} · double-click to rename`
-            : "Expand · double-click to rename"
+            : `${selectHint} · double-click to rename`
           : stored !== name
             ? `${stored} · click to rename`
             : "Click to rename"
