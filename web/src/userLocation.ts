@@ -2,6 +2,7 @@ export type UserPosition = {
   lat: number;
   lng: number;
   accuracy: number;
+  speed: number | null;
   heading: number | null;
 };
 
@@ -34,11 +35,12 @@ export function watchUserPosition(
 
   const id = navigator.geolocation.watchPosition(
     (pos) => {
-      const { latitude, longitude, accuracy, heading } = pos.coords;
+      const { latitude, longitude, accuracy, speed, heading } = pos.coords;
       onPosition({
         lat: latitude,
         lng: longitude,
         accuracy,
+        speed: finiteSpeed(speed),
         heading: finiteHeading(heading),
       });
     },
@@ -78,6 +80,11 @@ export async function watchHeading(onHeading: (heading: number) => void): Promis
 
 export function resolveHeading(gpsHeading: number | null, compassHeading: number | null): number | null {
   return gpsHeading ?? compassHeading;
+}
+
+function finiteSpeed(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value) || value < 0) return null;
+  return value;
 }
 
 function finiteHeading(value: number | null | undefined): number | null {

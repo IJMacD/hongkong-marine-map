@@ -3,6 +3,7 @@ import L from "leaflet";
 import { HistoryControl } from "./HistoryControl";
 import { LocateControl, type LocateState } from "./LocateControl";
 import { PlaceMarkerControl } from "./PlaceMarkerControl";
+import { SpeedHeadingControl } from "./SpeedHeadingControl";
 import { TidalStreamLayer } from "./TidalStreamLayer";
 import { TidesControl } from "./TidesControl";
 import type { ChartMarker } from "./markersTypes";
@@ -35,6 +36,9 @@ type Props = {
   onPlaceModeChange: (active: boolean) => void;
   onUserPosition: (position: UserPosition | null) => void;
   onLocateState: (state: LocateState) => void;
+  locateState: LocateState;
+  motionOpen: boolean;
+  onMotionToggle: () => void;
   historyOpen: boolean;
   onHistoryToggle: () => void;
   tidesOpen: boolean;
@@ -71,6 +75,9 @@ export function ChartMap({
   onPlaceModeChange,
   onUserPosition,
   onLocateState,
+  locateState,
+  motionOpen,
+  onMotionToggle,
   historyOpen,
   onHistoryToggle,
   tidesOpen,
@@ -87,6 +94,7 @@ export function ChartMap({
   const placeControlRef = useRef<PlaceMarkerControl | null>(null);
   const historyControlRef = useRef<HistoryControl | null>(null);
   const tidesControlRef = useRef<TidesControl | null>(null);
+  const motionControlRef = useRef<SpeedHeadingControl | null>(null);
   const tidesLayerRef = useRef<TidalStreamLayer | null>(null);
   const versionIdRef = useRef(version?.id ?? "latest");
   const skipMapClickRef = useRef(false);
@@ -98,6 +106,7 @@ export function ChartMap({
     onPlaceModeChange,
     onUserPosition,
     onLocateState,
+    onMotionToggle,
     onHistoryToggle,
     onTidesToggle,
     onLibraryClose,
@@ -114,6 +123,7 @@ export function ChartMap({
     onPlaceModeChange,
     onUserPosition,
     onLocateState,
+    onMotionToggle,
     onHistoryToggle,
     onTidesToggle,
     onLibraryClose,
@@ -153,6 +163,11 @@ export function ChartMap({
     });
     tidesControl.addTo(map);
     tidesControlRef.current = tidesControl;
+    const motionControl = new SpeedHeadingControl({
+      onToggle: () => callbacksRef.current.onMotionToggle(),
+    });
+    motionControl.addTo(map);
+    motionControlRef.current = motionControl;
 
     lineGroupRef.current = L.layerGroup().addTo(map);
     markerGroupRef.current = L.layerGroup().addTo(map);
@@ -221,6 +236,7 @@ export function ChartMap({
       historyControlRef.current = null;
       tidesControlRef.current = null;
       tidesLayerRef.current = null;
+      motionControlRef.current = null;
     };
   }, [locateRequestRef]);
 
@@ -282,6 +298,12 @@ export function ChartMap({
   useEffect(() => {
     tidesControlRef.current?.setActive(tidesOpen);
   }, [tidesOpen, mapEpoch]);
+
+  useEffect(() => {
+    const hasFix = locateState === "following" || locateState === "off-center";
+    motionControlRef.current?.setActive(motionOpen);
+    motionControlRef.current?.setAvailable(hasFix);
+  }, [motionOpen, locateState, mapEpoch]);
 
   useEffect(() => {
     const map = mapRef.current;

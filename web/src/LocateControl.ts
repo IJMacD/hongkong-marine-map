@@ -95,8 +95,11 @@ export class LocateControl extends L.Control {
     this.setState("locating");
     this.stopPosition = watchUserPosition(this.onPosition, this.onError);
     void watchHeading((heading) => {
+      const previous = resolveHeading(this.lastPosition?.heading ?? null, this.compassHeading);
       this.compassHeading = heading;
       this.applyHeading();
+      const next = resolveHeading(this.lastPosition?.heading ?? null, this.compassHeading);
+      if (displayedHeading(next) !== displayedHeading(previous)) this.emitPosition();
     }).then((stop) => {
       if (this.state === "idle" || this.state === "error") {
         stop();
@@ -123,7 +126,12 @@ export class LocateControl extends L.Control {
     const map = this.mapRef;
     const position = this.lastPosition;
     if (!map || !position) return;
-    map.fire("userposition", { position });
+    map.fire("userposition", {
+      position: {
+        ...position,
+        heading: resolveHeading(position.heading, this.compassHeading),
+      },
+    });
   }
 
   private onRequestLocate = (): void => {
@@ -246,4 +254,9 @@ export class LocateControl extends L.Control {
     button.classList.toggle("is-off-center", state === "off-center");
     button.classList.toggle("is-error", state === "error");
   }
+}
+
+function displayedHeading(degrees: number | null): number | null {
+  if (degrees == null) return null;
+  return ((Math.round(degrees) % 360) + 360) % 360;
 }

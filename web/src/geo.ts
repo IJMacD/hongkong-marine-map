@@ -33,6 +33,12 @@ export function bearingTrue(from: LatLng, to: LatLng): number {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
+export function formatSpeedKnots(mps: number | null): string {
+  if (mps == null || !Number.isFinite(mps)) return "—";
+  const knots = (mps * 3600) / METERS_PER_NAUTICAL_MILE;
+  return `${knots.toFixed(1)} kn`;
+}
+
 export function formatBearing(deg: number): string {
   const rounded = ((Math.round(deg) % 360) + 360) % 360;
   return `${String(rounded).padStart(3, "0")}°T`;

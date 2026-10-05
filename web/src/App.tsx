@@ -6,6 +6,7 @@ import { shareOrDownloadMarkers, type ImportSummary } from "./markersTransfer";
 import { setLineColor, type MarkersState } from "./markersTypes";
 import type { LocateState } from "./LocateControl";
 import type { VersionInfo } from "./types";
+import { SpeedHeadingPanel } from "./SpeedHeadingPanel";
 import { TidesPanel } from "./TidesPanel";
 import { readLocation } from "./urlState";
 import { nowTidalSlot, useTidalCurrents } from "./useTidalCurrents";
@@ -25,10 +26,19 @@ export default function App() {
   const [locateState, setLocateState] = useState<LocateState>("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [tidesOpen, setTidesOpen] = useState(false);
+  const [motionOpen, setMotionOpen] = useState(false);
+  const hadFixRef = useRef(false);
   const [tidalSlot, setTidalSlot] = useState(() => nowTidalSlot());
   const [focusToken, setFocusToken] = useState<FocusToken | null>(null);
   const locateRequestRef = useRef<(() => void) | null>(null);
   const tides = useTidalCurrents(tidesOpen, tidalSlot);
+  const hasFix = locateState === "following" || locateState === "off-center";
+
+  useEffect(() => {
+    if (hasFix && !hadFixRef.current) setMotionOpen(true);
+    if (!hasFix) setMotionOpen(false);
+    hadFixRef.current = hasFix;
+  }, [hasFix]);
 
   useEffect(() => {
     fetch("/versions.json")
@@ -132,6 +142,9 @@ export default function App() {
         onPlaceModeChange={setPlaceMode}
         onUserPosition={setUserPosition}
         onLocateState={setLocateState}
+        locateState={locateState}
+        motionOpen={motionOpen}
+        onMotionToggle={() => setMotionOpen((open) => !open)}
         historyOpen={historyOpen}
         onHistoryToggle={() => setHistoryOpen((open) => !open)}
         tidesOpen={tidesOpen}
@@ -143,6 +156,7 @@ export default function App() {
       <div
         className={`side-panels${libraryOpen && selected ? " is-stacked" : ""}${historyOpen || tidesOpen ? " has-bottom" : ""}${historyOpen && tidesOpen ? " has-bottom-2" : ""}`}
       >
+        {motionOpen && hasFix && userPosition ? <SpeedHeadingPanel position={userPosition} /> : null}
         {libraryOpen ? (
           <MarkersLibrary
             markers={markersState.markers}
